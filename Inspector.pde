@@ -240,8 +240,8 @@ void drawSidebar() {
     if (numSib >= 2) {
       y = sbSectionLabel("Reorder", x, y);
       float bw2 = (SB_W - SB_PAD*2 - 4) / 2.0;
-      sbButton("< CCW", x+SB_PAD,        y, bw2, 26, "SWAP_PREV", false);
-      sbButton("CW >",  x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT", false);
+      sbReorderButton("CCW", false, x+SB_PAD,        y, bw2, 26, "SWAP_PREV");
+      sbReorderButton("CW",  true,  x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT");
       y += 34; sbDivider(y); y += 12;
     }
   }
@@ -370,6 +370,31 @@ float sbOrbitTypeRow(boolean dashed,float x,float y){
     rect(bx,y,bw,26,5);fill(sel?color(30,80,160):FG);noStroke();textSize(11);textAlign(CENTER,CENTER);
     text(lbs[i],bx+bw/2,y+13);sbRegisterClick(bx,y,bw,26,"ORBIT_TYPE_"+i);}
   return y+32;}
+
+// Draws a button with a programmatic arc-arrow icon + "CW" or "CCW" label.
+// clockwise=true → arrowhead at the end of the arc (CW direction)
+// clockwise=false → arrowhead at the start of the arc (CCW direction)
+void sbReorderButton(String label, boolean clockwise, float bx, float by, float bw, float bh, String tag) {
+  fill(color(235)); stroke(color(190)); strokeWeight(1);
+  rect(bx, by, bw, bh, 4);
+  // Arc: 270° opening to the right, centered in left portion of button
+  float cx=bx+15, cy=by+bh/2, r=6;
+  float startA=-HALF_PI-QUARTER_PI, stopA=HALF_PI+QUARTER_PI;
+  noFill(); stroke(color(70)); strokeWeight(1.5);
+  arc(cx, cy, r*2, r*2, startA, stopA);
+  // Arrowhead triangle at appropriate end
+  float hx, hy, hdir;
+  if (clockwise) { hx=cx+r*cos(stopA);  hy=cy+r*sin(stopA);  hdir=stopA+HALF_PI;  }
+  else           { hx=cx+r*cos(startA); hy=cy+r*sin(startA); hdir=startA-HALF_PI; }
+  fill(color(70)); noStroke();
+  pushMatrix(); translate(hx,hy); rotate(hdir);
+  triangle(0,-3.5,-2.5,2,2.5,2);
+  popMatrix();
+  // Label text
+  fill(color(70)); noStroke(); textSize(11); textAlign(LEFT,CENTER);
+  text(label, bx+28, by+bh/2);
+  sbRegisterClick(bx, by, bw, bh, tag);
+}
 
 float sbToggle(String label,boolean state,String tag,float x,float y,boolean disabled){
   fill(disabled?color(200):MUTED);noStroke();textSize(11);textAlign(LEFT,CENTER);text(label,x+SB_PAD,y+10);
