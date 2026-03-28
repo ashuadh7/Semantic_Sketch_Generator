@@ -152,7 +152,7 @@ NodeState pendingImportNode = null;
 void imageSelected(File f) {
   if (f==null||pendingImageNode==null) return;
   PImage loaded=loadImage(f.getAbsolutePath());
-  if (loaded!=null) { pendingImageNode.img=loaded; pendingImageNode.invalidateCache(); }
+  if (loaded!=null) { pendingImageNode.img=loaded; pendingImageNode.alpha=0; pendingImageNode.invalidateCache(); }
   pendingImageNode=null;
 }
 
