@@ -107,14 +107,10 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
       registerHitTarget(lx, ly, child.r, childStIdx);
 
       if (child.isHub()) {
-        // Draw hub child's node and orbit ring here, inside the scale matrix,
-        // so they appear at the correct visual scale.  Recursion into its own
-        // children is deferred to after popMatrix (fixes Bug 2).
+        // Draw hub child's node inside the scale matrix (correct visual scale).
+        // Orbit ring is deferred to after popMatrix so it matches where the
+        // depth+1 satellites actually land (both in the same screen-space coords).
         styledNode(lx, ly, child, "");
-        float childOrbitR = child.subOrbitR * child.subScale;
-        noFill(); stroke(child.orbitCol); strokeWeight(1);
-        if (child.orbitDashed) dashedCircle(lx, ly, childOrbitR, 7, 5);
-        else                   ellipse(lx, ly, childOrbitR*2, childOrbitR*2);
       } else {
         styledNode(lx, ly, child, "label");
       }
@@ -131,7 +127,13 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
     hitTargets[childHitIdx[i]][2] = child.r * sc;
 
     if (child.isHub()) {
-      // Recurse with screen-space coords — hub visual already drawn above
+      // Draw orbit ring here (screen space) so it matches where the next-level
+      // satellites will actually be placed by the recursive call below.
+      float childOrbitR = child.subOrbitR * child.subScale;
+      noFill(); stroke(child.orbitCol); strokeWeight(1);
+      if (child.orbitDashed) dashedCircle(childSX[i], childSY[i], childOrbitR, 7, 5);
+      else                   ellipse(childSX[i], childSY[i], childOrbitR*2, childOrbitR*2);
+      // Recurse with screen-space coords — hub node already drawn inside matrix above
       drawSubDiagramContents(child, childSX[i], childSY[i], childHitIdx[i]);
     }
   }
