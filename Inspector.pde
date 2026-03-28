@@ -193,7 +193,7 @@ void drawSidebar() {
   // Node appearance
   y = sbSectionLabel("Node", x, y);
   y = sbColorRow("Fill", ns.fillCol, ns.alpha, true, "NODE_COLOR", x, y);
-  y = sbAlphaSlider("Alpha (overlay)", ns.alpha, "NODE_ALPHA", x, y);
+  y = sbAlphaSlider("Fill alpha", ns.alpha, "NODE_ALPHA", x, y);
   y = sbShapeRow(ns.shapeType, x, y);
   y+=4; sbDivider(y); y+=12;
 

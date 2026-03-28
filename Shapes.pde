@@ -134,7 +134,7 @@ void styledNode(float x,float y,NodeState ns,String sub){
     else{float asp=(float)ns.img.width/ns.img.height;
       float imgH=diameter/sqrt(asp*asp+1),imgW=imgH*asp;
       imageMode(CENTER);image(ns.img,x,y,imgW,imgH);imageMode(CORNER);}}
-  color fc=color(red(ns.fillCol),green(ns.fillCol),blue(ns.fillCol),hasImg?ns.alpha:255);
+  color fc=color(red(ns.fillCol),green(ns.fillCol),blue(ns.fillCol),ns.alpha);
   fill(fc);noStroke();drawShape(x,y,ns);
   noFill();stroke(BORDER);strokeWeight(1.5);drawShape(x,y,ns);
   fill(FG);noStroke();
