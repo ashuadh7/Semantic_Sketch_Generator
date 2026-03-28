@@ -192,8 +192,8 @@ void drawSidebar() {
 
   // Node appearance
   y = sbSectionLabel("Node", x, y);
-  y = sbColorRow("Fill", ns.fillCol, "NODE_COLOR", x, y);
-  y = sbAlphaSlider("Alpha (overlay)", ns.alpha, "NODE_ALPHA", x, y);
+  y = sbColorRow("Fill", ns.fillCol, ns.alpha, true, "NODE_COLOR", x, y);
+  y = sbAlphaSlider("Fill alpha", ns.alpha, "NODE_ALPHA", x, y);
   y = sbShapeRow(ns.shapeType, x, y);
   y+=4; sbDivider(y); y+=12;
 
@@ -228,7 +228,7 @@ void drawSidebar() {
   boolean showOrbit=(hasChildren||isTopHub)&&orb>0;
   y=sbSectionLabel("Orbit",x,y,showOrbit);
   if (showOrbit) {
-    y=sbColorRow("Color",ns.orbitCol,"ORBIT_COLOR",x,y);
+    y=sbColorRow("Color",ns.orbitCol,255,false,"ORBIT_COLOR",x,y);
     y=sbOrbitTypeRow(ns.orbitDashed,x,y);
   } else { fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP); text("(select hub)",x+SB_PAD,y); y+=18; }
   y+=4; sbDivider(y); y+=12;
@@ -318,14 +318,32 @@ float sbSectionLabel(String l,float x,float y,boolean active){
   fill(active?color(80,130,200):MUTED);noStroke();textSize(10);textAlign(LEFT,TOP);
   text(l.toUpperCase(),x+SB_PAD,y);return y+18;}
 
-float sbColorRow(String label,color current,String tag,float x,float y){
+// hasNoFill=true adds a white swatch and a no-fill (slash) swatch.
+// alpha is needed to detect whether no-fill is currently active.
+float sbColorRow(String label,color current,int alpha,boolean hasNoFill,String tag,float x,float y){
   fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text(label,x+SB_PAD,y);
-  color[]cols={color(200,70,70),color(160),color(70,170,100)};
-  float sw=22,gap=6,sx2=x+SB_W-SB_PAD-(sw+gap)*3+gap;
-  for(int i=0;i<3;i++){float sx=sx2+i*(sw+gap);
-    boolean sel=(int)red(current)==(int)red(cols[i])&&(int)green(current)==(int)green(cols[i])&&(int)blue(current)==(int)blue(cols[i]);
+  color[]cols={color(245),color(200,70,70),color(160),color(70,170,100)};  // default, red, grey, green
+  String[]suffixes={"_W","_0","_1","_2"};
+  float sw=20,gap=5;
+  int total=hasNoFill?5:4;
+  float sx0=x+SB_W-SB_PAD-(sw+gap)*total+gap;
+  int off=0;
+  if(hasNoFill){
+    // No-fill swatch: white background + red diagonal slash
+    boolean sel=(alpha==0);
+    fill(255);stroke(sel?color(40,80,180):color(180));strokeWeight(sel?2.5:1);
+    rect(sx0,y-1,sw,sw,4);
+    stroke(color(200,50,50));strokeWeight(1.5);
+    line(sx0+3,y+sw-4,sx0+sw-3,y);
+    sbRegisterClick(sx0,y-1,sw,sw,tag+"_X");
+    off=1;
+  }
+  for(int i=0;i<4;i++){
+    float sx=sx0+(off+i)*(sw+gap);
+    boolean sel=(alpha>0)&&(int)red(current)==(int)red(cols[i])&&(int)green(current)==(int)green(cols[i])&&(int)blue(current)==(int)blue(cols[i]);
     fill(cols[i]);stroke(sel?color(40,80,180):color(180));strokeWeight(sel?2.5:1);
-    rect(sx,y-1,sw,sw,4);sbRegisterClick(sx,y-1,sw,sw,tag+"_"+i);}
+    rect(sx,y-1,sw,sw,4);sbRegisterClick(sx,y-1,sw,sw,tag+suffixes[i]);
+  }
   return y+sw+6;}
 
 float sbAlphaSlider(String label,int current,String tag,float x,float y){
@@ -428,7 +446,8 @@ String sbPickZone(float mx,float my){
 void sbHandleClick(String tag,float mx,float my){
   if(tag==null)return;
   NodeState ns=selectedNodeState();
-  color[]cols={color(200,70,70),color(160),color(70,170,100)};
+  // cols matches sbColorRow order: white, red, grey, green (indices W,0,1,2)
+  color[]cols={color(255),color(200,70,70),color(160),color(70,170,100)};
 
   // Session — no node needed
   if(tag.equals("FILENAME_FIELD")){activateFilenameEdit();return;}
@@ -438,8 +457,17 @@ void sbHandleClick(String tag,float mx,float my){
 
   if(ns==null)return;
   if(tag.equals("LABEL_FIELD"))          activateLabelEdit(ns);
-  else if(tag.startsWith("NODE_COLOR_")) ns.fillCol=cols[int(tag.charAt(tag.length()-1))-48];
-  else if(tag.startsWith("ORBIT_COLOR_"))ns.orbitCol=cols[int(tag.charAt(tag.length()-1))-48];
+  else if(tag.startsWith("NODE_COLOR_")) {
+    char c=tag.charAt(tag.length()-1);
+    if     (c=='X')               { ns.alpha=0; }                           // no-fill
+    else if(c=='W')               { ns.fillCol=cols[0]; ns.alpha=255; }     // default
+    else                          { ns.fillCol=cols[int(c)-48+1]; ns.alpha=255; } // red/grey/green (+1 offset for white)
+  }
+  else if(tag.startsWith("ORBIT_COLOR_")) {
+    char c=tag.charAt(tag.length()-1);
+    if (c=='W') ns.orbitCol=cols[0];
+    else        ns.orbitCol=cols[int(c)-48+1];
+  }
   else if(tag.startsWith("SHAPE_"))      { ns.shapeType=int(tag.charAt(tag.length()-1))-48; ns.invalidateCache(); }
   else if(tag.startsWith("ORBIT_TYPE_")) ns.orbitDashed=(int(tag.charAt(tag.length()-1))-48==0);
   else if(tag.equals("NODE_ALPHA"))      { float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.alpha=(int)constrain(map(mx,tx,tx+tw,0,255),0,255); }
