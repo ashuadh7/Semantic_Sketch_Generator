@@ -5,10 +5,8 @@ final int SLOT_PLAIN=0,SLOT_CROSS=1,SLOT_SPOKE=2;
 
 int nSpoke=4,nCross=5,nInner=0,nOuter=4;
 
-int   activeFrame=-1,numButtons=4;
+int   appMode=0,activeFrame=2,numButtons=2;
 float btnW,btnH=64,btnGap=12,btnTop=20,canvasY;
-
-String[]btnLabels={"n-spoke radial","n-node cross","nested level","+ add framework"};
 
 void setup(){
   size(1060,880);
@@ -25,7 +23,7 @@ void draw(){
   background(BG); drawButtons();
   inspectorCX=(width-SB_W)/2.0;
   inspectorCY=canvasY+(height-20-canvasY)/2.0;
-  if(activeFrame>=0){
+  if(appMode==0){
     resetHitTargets(512);
     pushMatrix(); translate(inspectorCX,inspectorCY); drawFramework(activeFrame); popMatrix();
     // After a swap, reselect the moved node by matching its NodeState reference
@@ -38,7 +36,10 @@ void draw(){
       pendingSelectNode = null;
     }
     drawSelectionRing();
-  } else drawEmptyState();
+  } else {
+    fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENTER);
+    text("View mode — coming in a future update",(width-SB_W)/2.0,canvasY+(height-canvasY)/2.0);
+  }
   drawHUD();
   sbResetZones(); drawSidebar();
   drawToast();
@@ -59,9 +60,8 @@ void mousePressed(){
   for(int i=0;i<numButtons;i++){
     float x=btnGap+i*(btnW+btnGap),y=btnTop;
     if(mouseX>x&&mouseX<x+btnW&&mouseY>y&&mouseY<y+btnH){
-      if(activeFrame!=i){selectedNode=-1;editingLabel=false;}
-      activeFrame=(activeFrame==i)?-1:i;return;}}
-  if(activeFrame>=0){
+      appMode=i;return;}}
+  if(appMode==0){
     if(editingLabel)commitLabelEdit(selectedNodeState());
     if(editingSubLabel)commitSubLabelEdit(selectedNodeState());
     if(editingFilename)commitFilenameEdit();
@@ -109,19 +109,15 @@ void keyPressed(){
 }
 
 void drawButtons(){
-  String[]meta={"n="+nSpoke+" spokes","n="+nCross+" nodes",
-                  twoState!=null&&twoState[0].isHub()?
-                    twoState[0].numSatellites()+" satellites":"empty — click to build",
-                  "your next diagram"};
+  String[]modeLabels={"Edit","View"};
   for(int i=0;i<numButtons;i++){
-    float x=btnGap+i*(btnW+btnGap),y=btnTop;boolean active=(activeFrame==i);
+    float x=btnGap+i*(btnW+btnGap),y=btnTop;boolean active=(appMode==i);
     fill(active?color(230,242,255):color(245));stroke(active?color(80,140,210):BORDER);strokeWeight(active?1.8:0.8);
     rect(x,y,btnW,btnH,10);
-    fill(active?color(30,80,160):FG);noStroke();textSize(13);textAlign(LEFT,TOP);text(btnLabels[i],x+12,y+12);
-    fill(active?color(80,130,200):MUTED);textSize(11);text(meta[i],x+12,y+32);}}
+    fill(active?color(30,80,160):FG);noStroke();textSize(13);textAlign(CENTER,CENTER);text(modeLabels[i],x+btnW/2,y+btnH/2);}}
 
 void drawEmptyState(){fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENTER);
-  text("Select a framework above to preview it",(width-SB_W)/2.0,canvasY+(height-canvasY)/2.0);}
+  text("Nothing to display",(width-SB_W)/2.0,canvasY+(height-canvasY)/2.0);}
 void drawPlaceholder(){fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENTER);
   text("This slot is empty — add your own framework here.",0,0);}
 
