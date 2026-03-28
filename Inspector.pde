@@ -221,6 +221,7 @@ void drawSidebar() {
   sbButton("Import node", x+SB_PAD+(bw3+4)*2, y, bw3, 22, "IMPORT_NODE",!isNested);
   y+=28;
   y=sbToggle("Crop to shape",ns.cropToShape,"IMG_CROP",x,y,ns.img==null);
+  if(ns.img!=null) y=sbLabelPosCompass(ns.labelPosition,x,y);
   y+=4; sbDivider(y); y+=12;
 
   // Orbit (hub only)
@@ -387,6 +388,31 @@ float sbShapeRow(int current,float x,float y){
   }
   return y+32;}
 
+// 5-button compass for label position (image nodes only).
+// Layout:  [^]  /  [<][o][>]  /  [v]
+float sbLabelPosCompass(int current, float x, float y) {
+  fill(MUTED); noStroke(); textSize(11); textAlign(LEFT,TOP);
+  text("Label position", x+SB_PAD, y); y+=16;
+  float sw=20, gap=3;
+  float cx=x+SB_W/2.0;
+  float row1=y, row2=y+sw+gap, row3=y+2*(sw+gap);
+  sbCompassBtn("^", LABEL_TOP,    current, cx-sw/2,          row1, sw);
+  sbCompassBtn("<", LABEL_LEFT,   current, cx-sw/2-(sw+gap),  row2, sw);
+  sbCompassBtn("o", LABEL_CENTER, current, cx-sw/2,          row2, sw);
+  sbCompassBtn(">", LABEL_RIGHT,  current, cx-sw/2+(sw+gap),  row2, sw);
+  sbCompassBtn("v", LABEL_BOTTOM, current, cx-sw/2,          row3, sw);
+  return row3+sw+8;
+}
+
+void sbCompassBtn(String lbl, int val, int current, float bx, float by, float sw) {
+  boolean sel=(current==val);
+  fill(sel?color(210,230,255):color(235)); stroke(sel?color(80,140,210):color(200)); strokeWeight(sel?1.8:1);
+  rect(bx,by,sw,sw,4);
+  fill(sel?color(30,80,160):FG); noStroke(); textSize(10); textAlign(CENTER,CENTER);
+  text(lbl,bx+sw/2,by+sw/2);
+  sbRegisterClick(bx,by,sw,sw,"LABEL_POS_"+val);
+}
+
 float sbOrbitTypeRow(boolean dashed,float x,float y){
   fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text("Orbit line",x+SB_PAD,y);y+=16;
   String[]lbs={"- - -","Solid"};boolean[]vals={true,false};float bw=(SB_W-SB_PAD*2-4)/2.0;
@@ -476,6 +502,7 @@ void sbHandleClick(String tag,float mx,float my){
     else        ns.orbitCol=cols[int(c)-48+1];
   }
   else if(tag.startsWith("SHAPE_"))      { ns.shapeType=int(tag.charAt(tag.length()-1))-48; ns.invalidateCache(); }
+  else if(tag.startsWith("LABEL_POS_")) ns.labelPosition=int(tag.charAt(tag.length()-1))-48;
   else if(tag.startsWith("ORBIT_TYPE_")) ns.orbitDashed=(int(tag.charAt(tag.length()-1))-48==0);
   else if(tag.equals("NODE_ALPHA"))      { float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.alpha=(int)constrain(map(mx,tx,tx+tw,0,255),0,255); }
   else if(tag.equals("IMG_ADD"))         { pendingImageNode=ns; selectInput("Select image","imageSelected"); }

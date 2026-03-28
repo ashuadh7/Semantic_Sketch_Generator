@@ -138,8 +138,16 @@ void styledNode(float x,float y,NodeState ns,String sub){
   fill(fc);noStroke();drawShape(x,y,ns);
   noFill();stroke(BORDER);strokeWeight(1.5);drawShape(x,y,ns);
   fill(FG);noStroke();
-  if(hasImg){textSize(12);textAlign(CENTER,TOP);text(ns.label,x,y+ns.r+4);}
-  else{textSize(13);textAlign(CENTER,CENTER);text(ns.label,x,sub.isEmpty()?y:y-8);
+  if(hasImg){
+    textSize(12);
+    switch(ns.labelPosition){
+      case LABEL_TOP:    textAlign(CENTER,BOTTOM); text(ns.label,x,y-ns.r-4); break;
+      case LABEL_BOTTOM: textAlign(CENTER,TOP);    text(ns.label,x,y+ns.r+4); break;
+      case LABEL_LEFT:   textAlign(RIGHT,CENTER);  text(ns.label,x-ns.r-4,y); break;
+      case LABEL_RIGHT:  textAlign(LEFT,CENTER);   text(ns.label,x+ns.r+4,y); break;
+      default:           textAlign(CENTER,CENTER); text(ns.label,x,y);         break; // LABEL_CENTER
+    }
+  } else{textSize(13);textAlign(CENTER,CENTER);text(ns.label,x,sub.isEmpty()?y:y-8);
     if(!sub.isEmpty()){fill(MUTED);textSize(11);text(sub,x,y+10);}}}
 
 void drawShape(float x,float y,NodeState ns){
