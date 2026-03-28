@@ -41,11 +41,11 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
     registerHitTarget(sx, sy, ns.r, stateOffset + i+1);
 
     if (ns.isHub()) drawSubDiagram(ns, sx, sy, hitIdx, ns.ang);
-    else            styledNode(sx, sy, ns, "label");
+    else            styledNode(sx, sy, ns);
   }
 
   registerHitTarget(0, 0, hub.r, stateOffset + 0);
-  styledNode(0, 0, hub, "");
+  styledNode(0, 0, hub);
 }
 
 // Draw a hub node's visual (node circle + orbit ring) then hand off to drawSubDiagramContents.
@@ -53,7 +53,7 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
 // hubAngle is the absolute outward-facing angle of this hub from the root centre,
 // used to rotate the satellite cluster so it faces away from the centre.
 void drawSubDiagram(NodeState ns, float cx, float cy, int ownerHitIdx, float hubAngle) {
-  styledNode(cx, cy, ns, "");
+  styledNode(cx, cy, ns);
   float screenOrbitR = ns.subOrbitR * ns.subScale;
   noFill(); stroke(ns.orbitCol); strokeWeight(1);
   if (ns.orbitDashed) dashedCircle(cx, cy, screenOrbitR, 7, 5);
@@ -102,9 +102,9 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, f
       registerHitTarget(lx, ly, child.r, childStIdx);
 
       if (child.isHub()) {
-        styledNode(lx, ly, child, "");
+        styledNode(lx, ly, child);
       } else {
-        styledNode(lx, ly, child, "label");
+        styledNode(lx, ly, child);
       }
     }
   popMatrix();

@@ -63,6 +63,7 @@ void mousePressed(){
       activeFrame=(activeFrame==i)?-1:i;return;}}
   if(activeFrame>=0){
     if(editingLabel)commitLabelEdit(selectedNodeState());
+    if(editingSubLabel)commitSubLabelEdit(selectedNodeState());
     if(editingFilename)commitFilenameEdit();
     selectedNode=pickNode(mouseX,mouseY);}}
 
@@ -125,7 +126,7 @@ void drawPlaceholder(){fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENT
   text("This slot is empty — add your own framework here.",0,0);}
 
 // ─── Styled draw helpers ──────────────────────────────────────────────────────
-void styledNode(float x,float y,NodeState ns,String sub){
+void styledNode(float x,float y,NodeState ns){
   int diameter=(int)(ns.r*2);boolean hasImg=(ns.img!=null);
   fill(255);stroke(BORDER);strokeWeight(1.5);drawShape(x,y,ns);
   if(hasImg){
@@ -138,9 +139,20 @@ void styledNode(float x,float y,NodeState ns,String sub){
   fill(fc);noStroke();drawShape(x,y,ns);
   noFill();stroke(BORDER);strokeWeight(1.5);drawShape(x,y,ns);
   fill(FG);noStroke();
-  if(hasImg){textSize(12);textAlign(CENTER,TOP);text(ns.label,x,y+ns.r+4);}
-  else{textSize(13);textAlign(CENTER,CENTER);text(ns.label,x,sub.isEmpty()?y:y-8);
-    if(!sub.isEmpty()){fill(MUTED);textSize(11);text(sub,x,y+10);}}}
+  if(hasImg){
+    float lx=x+(ns.r+10)*sin(ns.labelAng), ly=y-(ns.r+10)*cos(ns.labelAng);
+    float nx=sin(ns.labelAng), ny=-cos(ns.labelAng);
+    int ha,va;
+    if(abs(nx)>=abs(ny)){ha=nx>0?LEFT:RIGHT;va=CENTER;}
+    else{ha=CENTER;va=ny<0?BOTTOM:TOP;}
+    textSize(ns.labelSize);textAlign(ha,va);text(ns.label,lx,ly);
+    if(!ns.subLabel.isEmpty()){
+      fill(MUTED);textSize(max(9,ns.labelSize-2));
+      float subLy=(va==BOTTOM)?ly-(ns.labelSize+2):(va==TOP)?ly+(ns.labelSize+2):ly+ns.labelSize/2+2;
+      textAlign(ha,TOP);text(ns.subLabel,lx,subLy);
+    }
+  } else{textSize(ns.labelSize);textAlign(CENTER,CENTER);text(ns.label,x,ns.subLabel.isEmpty()?y:y-8);
+    if(!ns.subLabel.isEmpty()){fill(MUTED);textSize(max(9,ns.labelSize-2));text(ns.subLabel,x,y+10);}}}
 
 void drawShape(float x,float y,NodeState ns){
   if(ns.shapeType==SHAPE_RECT){rectMode(CENTER);rect(x,y,ns.r*2,ns.r*2,ns.r*0.3);rectMode(CORNER);}
