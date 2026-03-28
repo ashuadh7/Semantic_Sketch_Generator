@@ -126,7 +126,7 @@ void drawHUD() {
   NodeState ns = selectedNodeState();
   float orb = currentOrbitR();
   fill(color(30,80,180));
-  text("● "+ns.label+(orb>0?"  orbit="+nf(orb,0,1):"")
+  text("[*] "+ns.label+(orb>0?"  orbit="+nf(orb,0,1):"")
     +"  [ ] node size"+(ns.isHub()?"  { } scale sub":"")
     +(orb>0?"  , . orbit":"")+"  Tab  Esc",
     (width-SB_W)/2.0, height-8);
@@ -240,8 +240,8 @@ void drawSidebar() {
     if (numSib >= 2) {
       y = sbSectionLabel("Reorder", x, y);
       float bw2 = (SB_W - SB_PAD*2 - 4) / 2.0;
-      sbButton("\u25c4", x+SB_PAD,        y, bw2, 26, "SWAP_PREV", false);
-      sbButton("\u25ba", x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT", false);
+      sbReorderButton("CCW", false, x+SB_PAD,        y, bw2, 26, "SWAP_PREV");
+      sbReorderButton("CW",  true,  x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT");
       y += 34; sbDivider(y); y += 12;
     }
   }
@@ -270,8 +270,8 @@ void drawSidebar() {
       sbButton("Flatten", x+SB_PAD+(bw2+4)*2, y,bw2,24,"DEMOTE",    false);
       y+=32;
       float bw22=(SB_W-SB_PAD*2-4)/2.0;
-      sbButton("→ Cross",x+SB_PAD,        y,bw22,22,"SWITCH_CROSS",ns.subType==SLOT_CROSS);
-      sbButton("→ Spoke",x+SB_PAD+bw22+4,y,bw22,22,"SWITCH_SPOKE",ns.subType==SLOT_SPOKE);
+      sbButton("> Cross",x+SB_PAD,        y,bw22,22,"SWITCH_CROSS",ns.subType==SLOT_CROSS);
+      sbButton("> Spoke",x+SB_PAD+bw22+4,y,bw22,22,"SWITCH_SPOKE",ns.subType==SLOT_SPOKE);
       y+=30;
     }
     if (isSatellite) {
@@ -338,22 +338,63 @@ float sbAlphaSlider(String label,int current,String tag,float x,float y){
 
 float sbShapeRow(int current,float x,float y){
   fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text("Shape",x+SB_PAD,y);y+=16;
-  String[]lbs={"●","▬","◆"};int[]types={SHAPE_CIRCLE,SHAPE_RECT,SHAPE_DIAMOND};
+  int[]types={SHAPE_CIRCLE,SHAPE_RECT,SHAPE_DIAMOND};
   float bw=(SB_W-SB_PAD*2-8)/3.0;
-  for(int i=0;i<3;i++){float bx=x+SB_PAD+i*(bw+4);boolean sel=(current==types[i]);
-    fill(sel?color(210,230,255):color(235));stroke(sel?color(80,140,210):color(200));strokeWeight(sel?1.8:1);
-    rect(bx,y,bw,26,5);fill(sel?color(30,80,160):FG);noStroke();textSize(14);textAlign(CENTER,CENTER);
-    text(lbs[i],bx+bw/2,y+13);sbRegisterClick(bx,y,bw,26,"SHAPE_"+i);}
+  for(int i=0;i<3;i++){
+    float bx=x+SB_PAD+i*(bw+4);
+    boolean sel=(current==types[i]);
+    // Button background
+    fill(sel?color(210,230,255):color(235));
+    stroke(sel?color(80,140,210):color(200));strokeWeight(sel?1.8:1);
+    rect(bx,y,bw,26,5);
+    // Draw shape icon programmatically — no Unicode needed
+    color ic=sel?color(30,80,160):color(80);
+    fill(ic);stroke(ic);strokeWeight(1);
+    float cx=bx+bw/2, cy=y+13, r=6;
+    if(i==0){ // Circle
+      ellipse(cx,cy,r*2,r*2);
+    } else if(i==1){ // Rectangle
+      noStroke();rect(cx-r,cy-r*0.55,r*2,r*1.1,1);
+    } else { // Diamond
+      beginShape();vertex(cx,cy-r);vertex(cx+r,cy);vertex(cx,cy+r);vertex(cx-r,cy);endShape(CLOSE);
+    }
+    sbRegisterClick(bx,y,bw,26,"SHAPE_"+i);
+  }
   return y+32;}
 
 float sbOrbitTypeRow(boolean dashed,float x,float y){
   fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text("Orbit line",x+SB_PAD,y);y+=16;
-  String[]lbs={"- - -","───"};boolean[]vals={true,false};float bw=(SB_W-SB_PAD*2-4)/2.0;
+  String[]lbs={"- - -","Solid"};boolean[]vals={true,false};float bw=(SB_W-SB_PAD*2-4)/2.0;
   for(int i=0;i<2;i++){float bx=x+SB_PAD+i*(bw+4);boolean sel=(dashed==vals[i]);
     fill(sel?color(210,230,255):color(235));stroke(sel?color(80,140,210):color(200));strokeWeight(sel?1.8:1);
     rect(bx,y,bw,26,5);fill(sel?color(30,80,160):FG);noStroke();textSize(11);textAlign(CENTER,CENTER);
     text(lbs[i],bx+bw/2,y+13);sbRegisterClick(bx,y,bw,26,"ORBIT_TYPE_"+i);}
   return y+32;}
+
+// Draws a button with a programmatic arc-arrow icon + "CW" or "CCW" label.
+// clockwise=true → arrowhead at the end of the arc (CW direction)
+// clockwise=false → arrowhead at the start of the arc (CCW direction)
+void sbReorderButton(String label, boolean clockwise, float bx, float by, float bw, float bh, String tag) {
+  fill(color(235)); stroke(color(190)); strokeWeight(1);
+  rect(bx, by, bw, bh, 4);
+  // Arc: 270° opening to the right, centered in left portion of button
+  float cx=bx+15, cy=by+bh/2, r=6;
+  float startA=-HALF_PI-QUARTER_PI, stopA=HALF_PI+QUARTER_PI;
+  noFill(); stroke(color(70)); strokeWeight(1.5);
+  arc(cx, cy, r*2, r*2, startA, stopA);
+  // Arrowhead triangle at appropriate end
+  float hx, hy, hdir;
+  if (clockwise) { hx=cx+r*cos(stopA);  hy=cy+r*sin(stopA);  hdir=stopA+HALF_PI;  }
+  else           { hx=cx+r*cos(startA); hy=cy+r*sin(startA); hdir=startA-HALF_PI; }
+  fill(color(70)); noStroke();
+  pushMatrix(); translate(hx,hy); rotate(hdir);
+  triangle(0,-3.5,-2.5,2,2.5,2);
+  popMatrix();
+  // Label text
+  fill(color(70)); noStroke(); textSize(11); textAlign(LEFT,CENTER);
+  text(label, bx+28, by+bh/2);
+  sbRegisterClick(bx, by, bw, bh, tag);
+}
 
 float sbToggle(String label,boolean state,String tag,float x,float y,boolean disabled){
   fill(disabled?color(200):MUTED);noStroke();textSize(11);textAlign(LEFT,CENTER);text(label,x+SB_PAD,y+10);
