@@ -240,8 +240,8 @@ void drawSidebar() {
     if (numSib >= 2) {
       y = sbSectionLabel("Reorder", x, y);
       float bw2 = (SB_W - SB_PAD*2 - 4) / 2.0;
-      sbButton("< Prev", x+SB_PAD,        y, bw2, 26, "SWAP_PREV", false);
-      sbButton("Next >", x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT", false);
+      sbButton("< CCW", x+SB_PAD,        y, bw2, 26, "SWAP_PREV", false);
+      sbButton("CW >",  x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT", false);
       y += 34; sbDivider(y); y += 12;
     }
   }
