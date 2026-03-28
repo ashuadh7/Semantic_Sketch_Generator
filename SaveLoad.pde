@@ -262,8 +262,9 @@ JSONObject nodeToJSON(NodeState ns) {
   o.setBoolean("orbitDashed", ns.orbitDashed);
   o.setBoolean("cropToShape", ns.cropToShape);
   o.setInt   ("subType",  ns.subType);
-  o.setFloat ("subOrbitR",ns.subOrbitR);
-  o.setFloat ("subScale", ns.subScale);
+  o.setFloat ("subOrbitR",   ns.subOrbitR);
+  o.setFloat ("subScale",    ns.subScale);
+  o.setFloat ("subAngOffset",ns.subAngOffset);
 
   // Image as base64
   if (ns.img != null) {
@@ -293,8 +294,9 @@ NodeState nodeFromJSON(JSONObject o) {
   ns.orbitDashed  = o.getBoolean("orbitDashed", true);
   ns.cropToShape  = o.getBoolean("cropToShape", true);
   ns.subType    = o.getInt    ("subType",   SLOT_PLAIN);
-  ns.subOrbitR  = o.getFloat  ("subOrbitR", 80);
-  ns.subScale   = o.getFloat  ("subScale",  1);
+  ns.subOrbitR     = o.getFloat("subOrbitR",    80);
+  ns.subScale      = o.getFloat("subScale",     1);
+  ns.subAngOffset  = o.getFloat("subAngOffset", 0);
 
   // Image from base64
   String imgB64 = o.isNull("img") ? null : o.getString("img", null);

@@ -230,6 +230,13 @@ void drawSidebar() {
   if (showOrbit) {
     y=sbColorRow("Color",ns.orbitCol,255,false,"ORBIT_COLOR",x,y);
     y=sbOrbitTypeRow(ns.orbitDashed,x,y);
+    if (hasChildren) {
+      fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text("Satellite rotation",x+SB_PAD,y);y+=16;
+      float bw2=(SB_W-SB_PAD*2-4)/2.0;
+      sbReorderButton("CCW", false, x+SB_PAD,        y, bw2, 24, "SUB_ROT_CCW");
+      sbReorderButton("CW",  true,  x+SB_PAD+bw2+4,  y, bw2, 24, "SUB_ROT_CW");
+      y+=32;
+    }
   } else { fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP); text("(select hub)",x+SB_PAD,y); y+=18; }
   y+=4; sbDivider(y); y+=12;
 
@@ -485,6 +492,8 @@ void sbHandleClick(String tag,float mx,float my){
   else if(tag.equals("DELETE_NODE"))     deleteSatellite();
   else if(tag.equals("SWAP_PREV"))       swapSatellite(-1);
   else if(tag.equals("SWAP_NEXT"))       swapSatellite(+1);
+  else if(tag.equals("SUB_ROT_CCW"))     ns.subAngOffset -= PI/12;
+  else if(tag.equals("SUB_ROT_CW"))      ns.subAngOffset += PI/12;
 }
 
 void deleteSatellite(){

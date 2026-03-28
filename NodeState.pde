@@ -21,10 +21,11 @@ class NodeState {
   int     imgCacheSize  = -1;
   int     imgCacheShape = -1;
 
-  int         subType   = SLOT_PLAIN;
-  float       subOrbitR = 80.0;
-  float       subScale  = 1.0;   // fixed at promote() — never recomputed from r
-  NodeState[] children  = null;
+  int         subType      = SLOT_PLAIN;
+  float       subOrbitR    = 80.0;
+  float       subScale     = 1.0;   // fixed at promote() — never recomputed from r
+  float       subAngOffset = 0.0;   // manual rotation offset for satellite cluster (radians)
+  NodeState[] children     = null;
 
   NodeState(String label, float r, float ang) {
     this.label = label; this.r = r; this.ang = ang;

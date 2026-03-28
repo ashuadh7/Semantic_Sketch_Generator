@@ -40,7 +40,7 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
     int hitIdx = hitCount;
     registerHitTarget(sx, sy, ns.r, stateOffset + i+1);
 
-    if (ns.isHub()) drawSubDiagram(ns, sx, sy, hitIdx);
+    if (ns.isHub()) drawSubDiagram(ns, sx, sy, hitIdx, ns.ang);
     else            styledNode(sx, sy, ns, "label");
   }
 
@@ -50,36 +50,28 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
 
 // Draw a hub node's visual (node circle + orbit ring) then hand off to drawSubDiagramContents.
 // cx, cy are always in screen-centred coordinates (relative to inspectorCX/CY origin).
-void drawSubDiagram(NodeState ns, float cx, float cy, int ownerHitIdx) {
+// hubAngle is the absolute outward-facing angle of this hub from the root centre,
+// used to rotate the satellite cluster so it faces away from the centre.
+void drawSubDiagram(NodeState ns, float cx, float cy, int ownerHitIdx, float hubAngle) {
   styledNode(cx, cy, ns, "");
   float screenOrbitR = ns.subOrbitR * ns.subScale;
   noFill(); stroke(ns.orbitCol); strokeWeight(1);
   if (ns.orbitDashed) dashedCircle(cx, cy, screenOrbitR, 7, 5);
   else                ellipse(cx, cy, screenOrbitR*2, screenOrbitR*2);
-  drawSubDiagramContents(ns, cx, cy, ownerHitIdx);
+  drawSubDiagramContents(ns, cx, cy, ownerHitIdx, hubAngle);
 }
 
 // Register hit targets and draw satellites for hub ns at screen position (cx, cy).
-// Hub children's visuals (node + orbit ring) are drawn inside the scale matrix so they
-// inherit the correct visual scale.  The recursive call for their own children happens
-// OUTSIDE the matrix with accumulated screen-space coordinates, fixing two bugs:
-//
-//   Bug 1 — "startHit = hitCount - n" formula:
-//     Recursive calls inside the loop inflate hitCount by more than n, so the old
-//     formula points at the wrong hit targets.  Fixed by recording each child's hit
-//     index before registration and using that recorded index for correction.
-//
-//   Bug 2 — wrong coordinate space in recursive calls:
-//     Calling drawSubDiagram from inside pushMatrix/scale passed local (unscaled) coords
-//     as if they were screen coords.  Fixed by deferring recursion to after popMatrix
-//     with the correct screen-space position (cx + lx*sc, cy + ly*sc).
-void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
+// hubAngle rotates every satellite by the hub's absolute outward angle + user offset,
+// so sub-diagrams face away from the root centre instead of always pointing north.
+void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, float hubAngle) {
   float sc = ns.subScale;
   int   n  = ns.numSatellites();
 
-  int[]   childHitIdx = new int[n];   // recorded before registration (fixes Bug 1)
-  float[] childSX     = new float[n]; // screen-space X for each child (fixes Bug 2)
+  int[]   childHitIdx = new int[n];
+  float[] childSX     = new float[n];
   float[] childSY     = new float[n];
+  float[] childAngle  = new float[n]; // absolute angle per child (for recursion)
 
   pushMatrix();
     translate(cx, cy);
@@ -87,14 +79,17 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
 
     for (int i = 0; i < n; i++) {
       NodeState child = ns.children[i+1];
-      float lx =  ns.subOrbitR * sin(child.ang);  // local coords (pre-scale)
-      float ly = -ns.subOrbitR * cos(child.ang);
-      childSX[i] = cx + lx * sc;  // accumulate to screen space for use after popMatrix
+      // Rotate satellite cluster outward: add parent hub angle + user offset
+      float angle = child.ang + hubAngle + ns.subAngOffset;
+      childAngle[i] = angle;
+      float lx =  ns.subOrbitR * sin(angle);  // local coords (pre-scale)
+      float ly = -ns.subOrbitR * cos(angle);
+      childSX[i] = cx + lx * sc;
       childSY[i] = cy + ly * sc;
 
       if (ns.subType == SLOT_CROSS) {
         float off=7, aHead=7;
-        float dx=sin(child.ang), dy=-cos(child.ang);
+        float dx=sin(angle), dy=-cos(angle);  // direction matches rotated position
         float px=-dy*off, py=dx*off;
         float gapC=ns.r/sc+4, gapS=child.r+4;
         stroke(FG); strokeWeight(1.3);
@@ -103,13 +98,10 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
       }
 
       int childStIdx = NESTED_BASE + ownerHitIdx*MAX_CHILDREN + (i+1);
-      childHitIdx[i] = hitCount;              // record index BEFORE registering
+      childHitIdx[i] = hitCount;
       registerHitTarget(lx, ly, child.r, childStIdx);
 
       if (child.isHub()) {
-        // Draw hub child's node inside the scale matrix (correct visual scale).
-        // Orbit ring is deferred to after popMatrix so it matches where the
-        // depth+1 satellites actually land (both in the same screen-space coords).
         styledNode(lx, ly, child, "");
       } else {
         styledNode(lx, ly, child, "label");
@@ -117,9 +109,6 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
     }
   popMatrix();
 
-  // Correct every child's hit target using its recorded index (fixes Bug 1)
-  // and accumulated screen coords (fixes Bug 2).
-  // Then recurse for hub children outside the scale matrix.
   for (int i = 0; i < n; i++) {
     NodeState child = ns.children[i+1];
     hitTargets[childHitIdx[i]][0] = inspectorCX + childSX[i];
@@ -127,14 +116,12 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx) {
     hitTargets[childHitIdx[i]][2] = child.r * sc;
 
     if (child.isHub()) {
-      // Draw orbit ring here (screen space) so it matches where the next-level
-      // satellites will actually be placed by the recursive call below.
       float childOrbitR = child.subOrbitR * child.subScale;
       noFill(); stroke(child.orbitCol); strokeWeight(1);
       if (child.orbitDashed) dashedCircle(childSX[i], childSY[i], childOrbitR, 7, 5);
       else                   ellipse(childSX[i], childSY[i], childOrbitR*2, childOrbitR*2);
-      // Recurse with screen-space coords — hub node already drawn inside matrix above
-      drawSubDiagramContents(child, childSX[i], childSY[i], childHitIdx[i]);
+      // Accumulate absolute angle so deeper levels also face outward from root
+      drawSubDiagramContents(child, childSX[i], childSY[i], childHitIdx[i], childAngle[i]);
     }
   }
 }

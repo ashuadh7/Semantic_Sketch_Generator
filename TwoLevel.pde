@@ -45,7 +45,7 @@ void drawTwoLevel(int nInner, int nOuter) {
     int childHitIdx = hitCount;
     registerHitTarget(sx, sy, child.r * hub.subScale, childStIdx);
 
-    if (child.isHub()) drawSubDiagram(child, sx, sy, childHitIdx);
+    if (child.isHub()) drawSubDiagram(child, sx, sy, childHitIdx, child.ang);
     else               styledNode(sx, sy, child, "label");
   }
 
