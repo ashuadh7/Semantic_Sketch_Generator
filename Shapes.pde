@@ -21,9 +21,9 @@ void setup(){
 
 void draw(){
   background(BG); drawButtons();
-  inspectorCX=(width-SB_W)/2.0;
-  inspectorCY=canvasY+(height-20-canvasY)/2.0;
   if(appMode==0){
+    inspectorCX=(width-SB_W)/2.0;
+    inspectorCY=canvasY+(height-20-canvasY)/2.0;
     resetHitTargets(512);
     pushMatrix(); translate(inspectorCX,inspectorCY); drawFramework(activeFrame); popMatrix();
     // After a swap, reselect the moved node by matching its NodeState reference
@@ -36,12 +36,13 @@ void draw(){
       pendingSelectNode = null;
     }
     drawSelectionRing();
+    drawHUD();
+    sbResetZones(); drawSidebar();
   } else {
-    fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENTER);
-    text("View mode — coming in a future update",(width-SB_W)/2.0,canvasY+(height-canvasY)/2.0);
+    inspectorCX=width/2.0;
+    inspectorCY=canvasY+(height-20-canvasY)/2.0;
+    pushMatrix(); translate(inspectorCX,inspectorCY); drawFramework(activeFrame); popMatrix();
   }
-  drawHUD();
-  sbResetZones(); drawSidebar();
   drawToast();
 }
 
@@ -56,7 +57,7 @@ void drawFramework(int id){
     case 3:drawPlaceholder();break;}}
 
 void mousePressed(){
-  if(mouseX>=sbX()){sbMousePressed(mouseX,mouseY);return;}
+  if(mouseX>=sbX()){if(appMode==0)sbMousePressed(mouseX,mouseY);return;}
   for(int i=0;i<numButtons;i++){
     float x=btnGap+i*(btnW+btnGap),y=btnTop;
     if(mouseX>x&&mouseX<x+btnW&&mouseY>y&&mouseY<y+btnH){
@@ -67,10 +68,11 @@ void mousePressed(){
     if(editingFilename)commitFilenameEdit();
     selectedNode=pickNode(mouseX,mouseY);}}
 
-void mouseDragged(){if(mouseX>=sbX())sbMouseDragged(mouseX,mouseY);}
-void mouseReleased(){sbMouseReleased();}
+void mouseDragged(){if(appMode==0&&mouseX>=sbX())sbMouseDragged(mouseX,mouseY);}
+void mouseReleased(){if(appMode==0)sbMouseReleased();}
 
 void keyPressed(){
+  if(appMode!=0)return;
   if(sbKeyPressed())return;
   if(key==TAB){selectedNode=(hitCount>0)?(selectedNode+1)%hitCount:-1;return;}
   if(key==ESC){key=0;selectedNode=-1;return;}
