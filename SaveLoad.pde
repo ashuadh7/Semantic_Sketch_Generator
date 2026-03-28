@@ -142,8 +142,9 @@ void loadStateFromFile(File f) {
 }
 
 // ── Import node (upload node) ─────────────────────────────────────────────────
-// Picks a saved state file, extracts the nested hub node,
-// promotes the currently selected node with that subtree scaled to 75% of its r.
+// Picks a saved state file and completely replaces the selected node with the
+// imported node's full structure (all satellites and their satellites recursively).
+// Only the target's position (ang) is preserved.
 void importNodeFromFile(File f) {
   if (f == null) return;
   NodeState target = selectedNodeState();
@@ -152,28 +153,25 @@ void importNodeFromFile(File f) {
     JSONObject root = loadJSONObject(f.getAbsolutePath());
     JSONObject fw   = root.getJSONObject("frameworks");
 
-    // Find the best framework to import — prefer nested, then cross, then spoke
-    // Build a synthetic hub NodeState from whichever framework has the most content
     NodeState imported = null;
 
-    // Try nested first (hub + outer nodes)
-    JSONObject nested = fw.getJSONObject("nested");
+    // Try nested first: twoState[0] IS the hub node, with satellites stored
+    // recursively in its children — nodeFromJSON reconstructs the full tree.
+    JSONObject nested     = fw.getJSONObject("nested");
     JSONArray  nestedNodes = nested.getJSONArray("nodes");
-    if (nestedNodes.size() > 1) {
-      // Build hub from index 0, children from all other nodes
-      imported = buildImportedHub(nestedNodes,
-                                  nested.getFloat("outerOrbitR"),
-                                  SLOT_CROSS);
+    if (nestedNodes.size() >= 1) {
+      JSONObject centerJSON = nestedNodes.getJSONObject(0);
+      if (!centerJSON.isNull("children")) {
+        imported = nodeFromJSON(centerJSON);
+      }
     }
 
-    // Fall back to cross
+    // Fall back to cross (flat array: nodes[0]=center, nodes[1..n]=satellites)
     if (imported == null) {
       JSONObject cross = fw.getJSONObject("cross");
       JSONArray  crossNodes = cross.getJSONArray("nodes");
       if (crossNodes.size() > 1) {
-        imported = buildImportedHub(crossNodes,
-                                    cross.getFloat("orbitR"),
-                                    SLOT_CROSS);
+        imported = buildImportedHub(crossNodes, cross.getFloat("orbitR"), SLOT_CROSS);
       }
     }
 
@@ -182,29 +180,29 @@ void importNodeFromFile(File f) {
       JSONObject spoke = fw.getJSONObject("spoke");
       JSONArray  spokeNodes = spoke.getJSONArray("nodes");
       if (spokeNodes.size() > 1) {
-        imported = buildImportedHub(spokeNodes,
-                                    spoke.getFloat("orbitR"),
-                                    SLOT_SPOKE);
+        imported = buildImportedHub(spokeNodes, spoke.getFloat("orbitR"), SLOT_SPOKE);
       }
     }
 
     if (imported == null) { showToast("Nothing to import."); return; }
 
-    // Scale imported subtree so orbit fits within 75% of target.r
-    float targetBound = target.r * 0.75;
-    float factor      = targetBound / imported.subOrbitR;
-    imported.subOrbitR *= factor;
-    for (int i = 1; i < imported.children.length; i++) {
-      imported.children[i].r = max(6, imported.children[i].r * factor);
-      imported.children[i].invalidateCache();
-    }
-    imported.subScale = target.r / imported.subOrbitR;
-
-    // Graft onto target
-    target.subType   = imported.subType;
-    target.subOrbitR = imported.subOrbitR;
-    target.subScale  = imported.subScale;
-    target.children  = imported.children;
+    // Completely replace target with the imported node — preserve only position.
+    float savedAng     = target.ang;
+    target.label       = imported.label;
+    target.r           = imported.r;
+    target.fillCol     = imported.fillCol;
+    target.alpha       = imported.alpha;
+    target.shapeType   = imported.shapeType;
+    target.orbitCol    = imported.orbitCol;
+    target.orbitDashed = imported.orbitDashed;
+    target.cropToShape = imported.cropToShape;
+    target.img         = imported.img;
+    target.invalidateCache();
+    target.subType     = imported.subType;
+    target.subOrbitR   = imported.subOrbitR;
+    target.subScale    = imported.subScale;
+    target.children    = imported.children;
+    target.ang         = savedAng;
 
     showToast("Node imported.");
   } catch (Exception e) {
@@ -213,21 +211,25 @@ void importNodeFromFile(File f) {
   }
 }
 
-// Build a hub NodeState from a framework's node array
+// Build a hub NodeState from a flat framework node array (cross/spoke).
+// Returns the center node with hub structure applied — satellites become children.
 NodeState buildImportedHub(JSONArray nodes, float orbitR, int subType) {
   if (nodes.size() < 2) return null;
-  // hub proxy from nodes[0]
-  NodeState hub = new NodeState("hub", 20, 0);
-  int nSats = nodes.size() - 1;
-  hub.subType   = subType;
-  hub.subOrbitR = orbitR;
-  hub.subScale  = 1.0;
-  hub.children  = new NodeState[nSats + 1];
-  hub.children[0] = nodeFromJSON(nodes.getJSONObject(0));
+  int nSats  = nodes.size() - 1;
+  NodeState center = nodeFromJSON(nodes.getJSONObject(0));
+  center.subType   = subType;
+  center.subOrbitR = orbitR;
+  center.subScale  = 1.75 * center.r / orbitR;
+  NodeState[] children = new NodeState[nSats + 1];
+  // children[0] is the center proxy (mirrors promote())
+  children[0] = new NodeState(center.label, center.r * 0.6, 0);
+  children[0].fillCol   = center.fillCol;
+  children[0].shapeType = center.shapeType;
   for (int i = 0; i < nSats; i++) {
-    hub.children[i+1] = nodeFromJSON(nodes.getJSONObject(i+1));
+    children[i+1] = nodeFromJSON(nodes.getJSONObject(i+1));
   }
-  return hub;
+  center.children = children;
+  return center;
 }
 
 // ── JSON serialisation ────────────────────────────────────────────────────────
