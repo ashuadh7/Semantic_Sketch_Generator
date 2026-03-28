@@ -118,7 +118,7 @@ void loadStateFromFile(File f) {
   if (f == null) return;
   try {
     JSONObject root = loadJSONObject(f.getAbsolutePath());
-    activeFrame = root.getInt("activeFrame");
+    activeFrame = 2; // always nested level editor; ignore legacy activeFrame from saved files
     JSONObject fw = root.getJSONObject("frameworks");
 
     JSONObject spoke = fw.getJSONObject("spoke");
