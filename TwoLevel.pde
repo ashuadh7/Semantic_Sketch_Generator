@@ -13,7 +13,7 @@ void drawTwoLevel(int nInner, int nOuter) {
   if (!hub.isHub()) {
     // Plain single node — just draw it
     registerHitTarget(0, 0, hub.r, 0);
-    styledNode(0, 0, hub, "");
+    styledNode(0, 0, hub);
     return;
   }
 
@@ -46,9 +46,9 @@ void drawTwoLevel(int nInner, int nOuter) {
     registerHitTarget(sx, sy, child.r * hub.subScale, childStIdx);
 
     if (child.isHub()) drawSubDiagram(child, sx, sy, childHitIdx, child.ang);
-    else               styledNode(sx, sy, child, "label");
+    else               styledNode(sx, sy, child);
   }
 
   // Draw hub circle on top (already registered — just draw)
-  styledNode(0, 0, hub, "");
+  styledNode(0, 0, hub);
 }

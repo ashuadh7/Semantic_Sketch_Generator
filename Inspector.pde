@@ -18,11 +18,16 @@ final color SB_LINE = color(210);
 boolean editingLabel    = false;
 String  editBuffer      = "";
 
+boolean editingSubLabel = false;
+String  editSubBuffer   = "";
+
 boolean editingFilename = false;
 String  filenameBuffer  = "";
 
-void activateLabelEdit(NodeState ns) { editingLabel=true; editBuffer=ns.label; }
-void commitLabelEdit(NodeState ns)   { if(ns!=null&&editBuffer.length()>0) ns.label=editBuffer; editingLabel=false; }
+void activateLabelEdit(NodeState ns)    { editingSubLabel=false; editingLabel=true;    editBuffer=ns.label; }
+void commitLabelEdit(NodeState ns)      { if(ns!=null&&editBuffer.length()>0) ns.label=editBuffer; editingLabel=false; }
+void activateSubLabelEdit(NodeState ns) { editingLabel=false; editingSubLabel=true; editSubBuffer=ns.subLabel; }
+void commitSubLabelEdit(NodeState ns)   { if(ns!=null) ns.subLabel=editSubBuffer; editingSubLabel=false; }
 
 void activateFilenameEdit() { editingFilename=true; }
 void commitFilenameEdit()   { editingFilename=false; }
@@ -188,7 +193,16 @@ void drawSidebar() {
   fill(FG); noStroke(); textSize(12); textAlign(LEFT,CENTER);
   text((fa?editBuffer:ns.label)+(fa&&frameCount%60<30?"|":""), x+SB_PAD+6, y+12);
   sbRegisterClick(x+SB_PAD,y,SB_W-SB_PAD*2,24,"LABEL_FIELD");
-  y+=32;
+  y+=30;
+  // Sub-label field
+  boolean fs=editingSubLabel;
+  fill(fs?color(230,240,255):color(242)); stroke(fs?color(80,140,210):color(210)); strokeWeight(fs?1.8:1);
+  rect(x+SB_PAD,y,SB_W-SB_PAD*2,20,4);
+  fill(ns.subLabel.isEmpty()&&!fs?MUTED:FG); noStroke(); textSize(10); textAlign(LEFT,CENTER);
+  String subDisplay=fs?editSubBuffer:(ns.subLabel.isEmpty()?"sub-label (optional)":ns.subLabel);
+  text(subDisplay+(fs&&frameCount%60<30?"|":""), x+SB_PAD+6, y+10);
+  sbRegisterClick(x+SB_PAD,y,SB_W-SB_PAD*2,20,"SUBLABEL_FIELD");
+  y+=28;
   y=sbSizeSlider("Font size", ns.labelSize, "LABEL_SIZE", x, y);
   sbDivider(y); y+=12;
 
@@ -507,6 +521,7 @@ void sbHandleClick(String tag,float mx,float my){
 
   if(ns==null)return;
   if(tag.equals("LABEL_FIELD"))          activateLabelEdit(ns);
+  else if(tag.equals("SUBLABEL_FIELD"))  activateSubLabelEdit(ns);
   else if(tag.startsWith("NODE_COLOR_")) {
     char c=tag.charAt(tag.length()-1);
     if     (c=='X')               { ns.alpha=0; }                           // no-fill
@@ -633,8 +648,15 @@ boolean sbKeyPressed(){
     if(key>=32&&key<127){filenameBuffer+=key;return true;}
     return true;
   }
-  if(!editingLabel)return false;
   NodeState ns=selectedNodeState();
+  if(editingSubLabel){
+    if(key==ENTER||key==RETURN){commitSubLabelEdit(ns);return true;}
+    if(key==ESC){editingSubLabel=false;key=0;return true;}
+    if(key==BACKSPACE){if(editSubBuffer.length()>0)editSubBuffer=editSubBuffer.substring(0,editSubBuffer.length()-1);return true;}
+    if(key>=32&&key<127){editSubBuffer+=key;return true;}
+    return true;
+  }
+  if(!editingLabel)return false;
   if(key==ENTER||key==RETURN){commitLabelEdit(ns);return true;}
   if(key==ESC){editingLabel=false;key=0;return true;}
   if(key==BACKSPACE){if(editBuffer.length()>0)editBuffer=editBuffer.substring(0,editBuffer.length()-1);return true;}

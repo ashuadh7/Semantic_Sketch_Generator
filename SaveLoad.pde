@@ -258,8 +258,9 @@ JSONObject nodeToJSON(NodeState ns) {
   o.setString("fillCol",  colorToHex(ns.fillCol));
   o.setInt   ("alpha",    ns.alpha);
   o.setInt   ("shapeType",    ns.shapeType);
-  o.setFloat ("labelAng",  ns.labelAng);
-  o.setInt   ("labelSize", ns.labelSize);
+  o.setFloat ("labelAng",   ns.labelAng);
+  o.setInt   ("labelSize",  ns.labelSize);
+  o.setString("subLabel",   ns.subLabel);
   o.setString("orbitCol", colorToHex(ns.orbitCol));
   o.setBoolean("orbitDashed", ns.orbitDashed);
   o.setBoolean("cropToShape", ns.cropToShape);
@@ -292,8 +293,9 @@ NodeState nodeFromJSON(JSONObject o) {
   ns.fillCol    = hexToColor(o.getString("fillCol",  "#F5F5F5"));
   ns.alpha      = o.getInt    ("alpha",     255);
   ns.shapeType     = o.getInt("shapeType",     0);
-  ns.labelAng      = o.getFloat("labelAng",  0);
+  ns.labelAng      = o.getFloat ("labelAng",  0);
   ns.labelSize     = o.getInt  ("labelSize", 12);
+  ns.subLabel      = o.getString("subLabel",  "");
   ns.orbitCol   = hexToColor(o.getString("orbitCol", "#B4B4B4"));
   ns.orbitDashed  = o.getBoolean("orbitDashed", true);
   ns.cropToShape  = o.getBoolean("cropToShape", true);

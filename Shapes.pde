@@ -63,6 +63,7 @@ void mousePressed(){
       activeFrame=(activeFrame==i)?-1:i;return;}}
   if(activeFrame>=0){
     if(editingLabel)commitLabelEdit(selectedNodeState());
+    if(editingSubLabel)commitSubLabelEdit(selectedNodeState());
     if(editingFilename)commitFilenameEdit();
     selectedNode=pickNode(mouseX,mouseY);}}
 
@@ -125,7 +126,7 @@ void drawPlaceholder(){fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENT
   text("This slot is empty — add your own framework here.",0,0);}
 
 // ─── Styled draw helpers ──────────────────────────────────────────────────────
-void styledNode(float x,float y,NodeState ns,String sub){
+void styledNode(float x,float y,NodeState ns){
   int diameter=(int)(ns.r*2);boolean hasImg=(ns.img!=null);
   fill(255);stroke(BORDER);strokeWeight(1.5);drawShape(x,y,ns);
   if(hasImg){
@@ -145,8 +146,8 @@ void styledNode(float x,float y,NodeState ns,String sub){
     if(abs(nx)>=abs(ny)) textAlign(nx>0?LEFT:RIGHT, CENTER);
     else                 textAlign(CENTER, ny<0?BOTTOM:TOP);
     text(ns.label,lx,ly);
-  } else{textSize(ns.labelSize);textAlign(CENTER,CENTER);text(ns.label,x,sub.isEmpty()?y:y-8);
-    if(!sub.isEmpty()){fill(MUTED);textSize(max(9,ns.labelSize-2));text(sub,x,y+10);}}}
+  } else{textSize(ns.labelSize);textAlign(CENTER,CENTER);text(ns.label,x,ns.subLabel.isEmpty()?y:y-8);
+    if(!ns.subLabel.isEmpty()){fill(MUTED);textSize(max(9,ns.labelSize-2));text(ns.subLabel,x,y+10);}}}
 
 void drawShape(float x,float y,NodeState ns){
   if(ns.shapeType==SHAPE_RECT){rectMode(CENTER);rect(x,y,ns.r*2,ns.r*2,ns.r*0.3);rectMode(CORNER);}
