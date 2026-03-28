@@ -14,6 +14,7 @@ class NodeState {
   int     alpha         = 255;
   int     shapeType     = SHAPE_CIRCLE;
   float   labelAng      = 0;           // radians, 0=top; only used when img != null
+  int     labelSize     = 12;          // font size for the node label
   color   orbitCol    = color(180);
   boolean orbitDashed = true;
 

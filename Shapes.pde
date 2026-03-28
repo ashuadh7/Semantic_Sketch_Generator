@@ -141,12 +141,12 @@ void styledNode(float x,float y,NodeState ns,String sub){
   if(hasImg){
     float lx=x+(ns.r+10)*sin(ns.labelAng), ly=y-(ns.r+10)*cos(ns.labelAng);
     float nx=sin(ns.labelAng), ny=-cos(ns.labelAng);
-    textSize(12);
+    textSize(ns.labelSize);
     if(abs(nx)>=abs(ny)) textAlign(nx>0?LEFT:RIGHT, CENTER);
     else                 textAlign(CENTER, ny<0?BOTTOM:TOP);
     text(ns.label,lx,ly);
-  } else{textSize(13);textAlign(CENTER,CENTER);text(ns.label,x,sub.isEmpty()?y:y-8);
-    if(!sub.isEmpty()){fill(MUTED);textSize(11);text(sub,x,y+10);}}}
+  } else{textSize(ns.labelSize);textAlign(CENTER,CENTER);text(ns.label,x,sub.isEmpty()?y:y-8);
+    if(!sub.isEmpty()){fill(MUTED);textSize(max(9,ns.labelSize-2));text(sub,x,y+10);}}}
 
 void drawShape(float x,float y,NodeState ns){
   if(ns.shapeType==SHAPE_RECT){rectMode(CENTER);rect(x,y,ns.r*2,ns.r*2,ns.r*0.3);rectMode(CORNER);}

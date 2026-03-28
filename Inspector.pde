@@ -188,7 +188,9 @@ void drawSidebar() {
   fill(FG); noStroke(); textSize(12); textAlign(LEFT,CENTER);
   text((fa?editBuffer:ns.label)+(fa&&frameCount%60<30?"|":""), x+SB_PAD+6, y+12);
   sbRegisterClick(x+SB_PAD,y,SB_W-SB_PAD*2,24,"LABEL_FIELD");
-  y+=32; sbDivider(y); y+=12;
+  y+=32;
+  y=sbSizeSlider("Font size", ns.labelSize, "LABEL_SIZE", x, y);
+  sbDivider(y); y+=12;
 
   // Node appearance
   y = sbSectionLabel("Node", x, y);
@@ -362,6 +364,16 @@ float sbAlphaSlider(String label,int current,String tag,float x,float y){
   fill(255);stroke(150);strokeWeight(1.5);ellipse(tx+tw*(current/255.0),y+th/2,12,12);
   sbRegisterClick(tx,y-16,tw,th+20,tag);return y+th+12;}
 
+float sbSizeSlider(String label,int current,String tag,float x,float y){
+  final int SMIN=8,SMAX=28;
+  fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text(label,x+SB_PAD,y);
+  fill(FG);textAlign(RIGHT,TOP);text(current+"px",x+SB_W-SB_PAD,y);y+=16;
+  float tx=x+SB_PAD,tw=SB_W-SB_PAD*2,th=6;
+  fill(210);noStroke();rect(tx,y,tw,th,3);
+  fill(100,140,220);rect(tx,y,tw*((current-SMIN)/(float)(SMAX-SMIN)),th,3);
+  fill(255);stroke(150);strokeWeight(1.5);ellipse(tx+tw*((current-SMIN)/(float)(SMAX-SMIN)),y+th/2,12,12);
+  sbRegisterClick(tx,y-16,tw,th+20,tag);return y+th+12;}
+
 float sbShapeRow(int current,float x,float y){
   fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text("Shape",x+SB_PAD,y);y+=16;
   int[]types={SHAPE_CIRCLE,SHAPE_RECT,SHAPE_DIAMOND};
@@ -510,6 +522,7 @@ void sbHandleClick(String tag,float mx,float my){
   else if(tag.equals("LABEL_ANGLE")) { float dx=mx-labelSliderCX,dy=my-labelSliderCY; if(dx*dx+dy*dy>9) ns.labelAng=atan2(dx,-dy); }
   else if(tag.startsWith("ORBIT_TYPE_")) ns.orbitDashed=(int(tag.charAt(tag.length()-1))-48==0);
   else if(tag.equals("NODE_ALPHA"))      { float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.alpha=(int)constrain(map(mx,tx,tx+tw,0,255),0,255); }
+  else if(tag.equals("LABEL_SIZE"))      { float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.labelSize=(int)constrain(map(mx,tx,tx+tw,8,28),8,28); }
   else if(tag.equals("IMG_ADD"))         { pendingImageNode=ns; selectInput("Select image","imageSelected"); }
   else if(tag.equals("IMG_REMOVE"))      { ns.img=null; ns.invalidateCache(); }
   else if(tag.equals("IMG_CROP"))        { ns.cropToShape=!ns.cropToShape; ns.invalidateCache(); }
@@ -602,6 +615,9 @@ void sbMouseDragged(float mx,float my){
   if(sbDragTag.equals("NODE_ALPHA")){
     float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2;
     ns.alpha=(int)constrain(map(mx,tx,tx+tw,0,255),0,255);
+  } else if(sbDragTag.equals("LABEL_SIZE")){
+    float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2;
+    ns.labelSize=(int)constrain(map(mx,tx,tx+tw,8,28),8,28);
   } else if(sbDragTag.equals("LABEL_ANGLE")){
     float dx=mx-labelSliderCX, dy=my-labelSliderCY;
     if(dx*dx+dy*dy>9) ns.labelAng=atan2(dx,-dy);
