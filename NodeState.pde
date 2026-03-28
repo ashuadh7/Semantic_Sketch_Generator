@@ -4,11 +4,6 @@ final int SHAPE_CIRCLE  = 0;
 final int SHAPE_RECT    = 1;
 final int SHAPE_DIAMOND = 2;
 
-final int LABEL_TOP    = 0;
-final int LABEL_BOTTOM = 1;
-final int LABEL_LEFT   = 2;
-final int LABEL_RIGHT  = 3;
-final int LABEL_CENTER = 4;
 
 class NodeState {
   String  label;
@@ -18,7 +13,7 @@ class NodeState {
   color   fillCol       = color(245);
   int     alpha         = 255;
   int     shapeType     = SHAPE_CIRCLE;
-  int     labelPosition = LABEL_TOP;   // only used when img != null; plain nodes always centre
+  float   labelAng      = 0;           // radians, 0=top; only used when img != null
   color   orbitCol    = color(180);
   boolean orbitDashed = true;
 
