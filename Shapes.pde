@@ -54,6 +54,7 @@ void mousePressed(){
       activeFrame=(activeFrame==i)?-1:i;return;}}
   if(activeFrame>=0){
     if(editingLabel)commitLabelEdit(selectedNodeState());
+    if(editingFilename)commitFilenameEdit();
     selectedNode=pickNode(mouseX,mouseY);}}
 
 void mouseDragged(){if(mouseX>=sbX())sbMouseDragged(mouseX,mouseY);}

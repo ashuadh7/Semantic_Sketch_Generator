@@ -10,7 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 
 // ── Save image ────────────────────────────────────────────────────────────────
-void saveCanvasImage() {
+void saveCanvasImage(String customName) {
   // Render only the diagram area — exclude button bar, sidebar, HUD
   float cx = (width - SB_W) / 2.0;
   float cy = canvasY + (height - 20 - canvasY) / 2.0;
@@ -32,8 +32,13 @@ void saveCanvasImage() {
 
   pg.endDraw();
 
-  String filename = "data/diagram_" + year() + nf(month(),2) + nf(day(),2)
-                  + "_" + nf(hour(),2) + nf(minute(),2) + nf(second(),2) + ".png";
+  String filename;
+  if (customName != null && customName.trim().length() > 0) {
+    filename = "data/" + customName.trim() + ".png";
+  } else {
+    filename = "data/diagram_" + year() + nf(month(),2) + nf(day(),2)
+             + "_" + nf(hour(),2) + nf(minute(),2) + nf(second(),2) + ".png";
+  }
   pg.save(filename);
   showToast("Image saved: " + filename);
 }
@@ -69,7 +74,7 @@ void drawFrameworkToPG(PGraphics pg, int id) {
 }
 
 // ── Save state ────────────────────────────────────────────────────────────────
-void saveState() {
+void saveState(String customName) {
   JSONObject root = new JSONObject();
   root.setInt("version", 1);
   root.setInt("activeFrame", activeFrame);
@@ -96,8 +101,13 @@ void saveState() {
 
   root.setJSONObject("frameworks", fw);
 
-  String filename = "data/state_" + year() + nf(month(),2) + nf(day(),2)
-                  + "_" + nf(hour(),2) + nf(minute(),2) + nf(second(),2) + ".json";
+  String filename;
+  if (customName != null && customName.trim().length() > 0) {
+    filename = "data/" + customName.trim() + ".json";
+  } else {
+    filename = "data/state_" + year() + nf(month(),2) + nf(day(),2)
+             + "_" + nf(hour(),2) + nf(minute(),2) + nf(second(),2) + ".json";
+  }
   saveJSONObject(root, filename);
   println("Saved state: " + filename);
   showToast("State saved: " + filename);
