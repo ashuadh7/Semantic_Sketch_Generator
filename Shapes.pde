@@ -28,6 +28,15 @@ void draw(){
   if(activeFrame>=0){
     resetHitTargets(512);
     pushMatrix(); translate(inspectorCX,inspectorCY); drawFramework(activeFrame); popMatrix();
+    // After a swap, reselect the moved node by matching its NodeState reference
+    if (pendingSelectNode != null) {
+      for (int i = 0; i < hitCount; i++) {
+        if (resolveHit((int)hitTargets[i][3]) == pendingSelectNode) {
+          selectedNode = i; break;
+        }
+      }
+      pendingSelectNode = null;
+    }
     drawSelectionRing();
   } else drawEmptyState();
   drawHUD();

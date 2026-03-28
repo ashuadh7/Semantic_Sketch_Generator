@@ -3,6 +3,9 @@
 int   selectedNode = -1;
 float inspectorCX, inspectorCY;
 
+// Reselect after swap: set to the moved node; cleared in draw() once found
+NodeState pendingSelectNode = null;
+
 float[][] hitTargets;
 int       hitCount;
 
@@ -230,6 +233,19 @@ void drawSidebar() {
   } else { fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP); text("(select hub)",x+SB_PAD,y); y+=18; }
   y+=4; sbDivider(y); y+=12;
 
+  // Reorder (any satellite with siblings, all frames)
+  if (isSatellite) {
+    int numSib = (selectedOwner != null) ? selectedOwner.numSatellites()
+                 : (activeStates() != null ? activeStates().length - 1 : 0);
+    if (numSib >= 2) {
+      y = sbSectionLabel("Reorder", x, y);
+      float bw2 = (SB_W - SB_PAD*2 - 4) / 2.0;
+      sbButton("\u25c4", x+SB_PAD,        y, bw2, 26, "SWAP_PREV", false);
+      sbButton("\u25ba", x+SB_PAD+bw2+4,  y, bw2, 26, "SWAP_NEXT", false);
+      y += 34; sbDivider(y); y += 12;
+    }
+  }
+
   // Nesting (nested tab only)
   if (isNested) {
     y=sbSectionLabel("Nesting",x,y);
@@ -398,6 +414,8 @@ void sbHandleClick(String tag,float mx,float my){
   else if(tag.equals("SWITCH_CROSS"))    ns.subType=SLOT_CROSS;
   else if(tag.equals("SWITCH_SPOKE"))    ns.subType=SLOT_SPOKE;
   else if(tag.equals("DELETE_NODE"))     deleteSatellite();
+  else if(tag.equals("SWAP_PREV"))       swapSatellite(-1);
+  else if(tag.equals("SWAP_NEXT"))       swapSatellite(+1);
 }
 
 void deleteSatellite(){
@@ -411,6 +429,56 @@ void deleteSatellite(){
     setActiveStates(next);
   }
   selectedNode=-1;
+}
+
+// ── Satellite reordering ──────────────────────────────────────────────────────
+// direction < 0 = swap with previous slot (wraps), direction > 0 = swap with next slot (wraps)
+// Hub nodes carry their entire sub-diagram because we swap NodeState references.
+void swapSatellite(int direction) {
+  selectedNodeState(); // refresh selectedOwner and selectedLocalIdx
+  if (selectedLocalIdx <= 0) return;
+
+  NodeState movedNode;
+
+  if (selectedOwner != null) {
+    // Satellite inside a hub's children[] (nested, or Frame-2 outer ring)
+    int n = selectedOwner.numSatellites();
+    if (n <= 1) return;
+    int cur  = selectedLocalIdx;
+    int next = (direction < 0) ? (cur == 1 ? n : cur-1)
+                                : (cur == n ? 1 : cur+1);
+    NodeState tmp = selectedOwner.children[cur];
+    selectedOwner.children[cur]  = selectedOwner.children[next];
+    selectedOwner.children[next] = tmp;
+    selectedOwner.recomputeAngles();
+    movedNode = selectedOwner.children[next];
+  } else {
+    // Top-level satellite in Frame 0 or 1
+    NodeState[] states = activeStates();
+    if (states == null) return;
+    int n = states.length - 1;
+    if (n <= 1) return;
+    int cur  = selectedLocalIdx;
+    int next = (direction < 0) ? (cur == 1 ? n : cur-1)
+                                : (cur == n ? 1 : cur+1);
+    NodeState tmp = states[cur];
+    states[cur]  = states[next];
+    states[next] = tmp;
+    recomputeTopLevelAngles(states);
+    movedNode = states[next];
+  }
+
+  pendingSelectNode = movedNode;
+}
+
+// Recalculate fixed angles for top-level spoke (frame 0) or cross (frame 1) arrays.
+void recomputeTopLevelAngles(NodeState[] states) {
+  int n = states.length - 1;
+  for (int i = 0; i < n; i++) {
+    states[i+1].ang = (activeFrame == 0)
+      ? radians(180 + i * (360.0/n))
+      : radians(i * (360.0/n));
+  }
 }
 
 void setActiveStates(NodeState[]next){
