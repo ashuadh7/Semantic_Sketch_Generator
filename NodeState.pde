@@ -1,25 +1,30 @@
 // ── NodeState ─────────────────────────────────────────────────────────────────
 
-// Shape type constants
 final int SHAPE_CIRCLE  = 0;
 final int SHAPE_RECT    = 1;
 final int SHAPE_DIAMOND = 2;
 
 class NodeState {
-  String label;
-  float  r;
-  float  ang;
+  String  label;
+  float   r;
+  float   ang;
 
   // Visual style
-  color  fillCol   = color(245);
-  int    alpha     = 255;
-  int    shapeType = SHAPE_CIRCLE;
+  color   fillCol   = color(245);
+  int     alpha     = 255;
+  int     shapeType = SHAPE_CIRCLE;
 
-  // Orbit style (meaningful only for hubs)
+  // Orbit style (hub only)
   color   orbitCol    = color(180);
   boolean orbitDashed = true;
 
-  // Sub-diagram (future promotion/demotion — stored but not yet fully wired)
+  // Image
+  PImage  img          = null;
+  boolean cropCircle   = true;   // circular crop vs uncropped rect
+  PImage  imgCropped   = null;   // cached circular-cropped version
+  int     imgCacheSize = -1;     // r at which cache was built
+
+  // Sub-diagram stub
   int subType = SLOT_PLAIN;
   int subN    = 3;
 
@@ -27,6 +32,33 @@ class NodeState {
     this.label = label;
     this.r     = r;
     this.ang   = ang;
+  }
+
+  // Rebuild the circular-crop cache when r or img changes
+  void rebuildCrop(int diameter) {
+    if (img == null) { imgCropped = null; imgCacheSize = -1; return; }
+    if (!cropCircle)  { imgCropped = null; imgCacheSize = diameter; return; }
+    if (imgCacheSize == diameter && imgCropped != null) return;
+
+    imgCacheSize = diameter;
+    PGraphics pg = createGraphics(diameter, diameter, JAVA2D);
+    pg.beginDraw();
+    pg.clear();
+    // Draw white circle as mask shape
+    pg.noStroke();
+    pg.fill(255);
+    pg.ellipse(diameter/2, diameter/2, diameter, diameter);
+    pg.endDraw();
+
+    // Draw image scaled to fill square
+    PGraphics imgG = createGraphics(diameter, diameter, JAVA2D);
+    imgG.beginDraw();
+    imgG.image(img, 0, 0, diameter, diameter);
+    imgG.endDraw();
+
+    // Apply mask
+    imgG.mask(pg);
+    imgCropped = imgG;
   }
 }
 
@@ -44,6 +76,20 @@ NodeState[] spokeState;
 NodeState[] crossState;
 NodeState[] twoState;
 NodeState[][] slotStates;
+
+// ── Image loading ─────────────────────────────────────────────────────────────
+NodeState pendingImageNode = null;  // which node is waiting for file picker
+
+void imageSelected(File f) {
+  if (f == null || pendingImageNode == null) return;
+  PImage loaded = loadImage(f.getAbsolutePath());
+  if (loaded != null) {
+    pendingImageNode.img        = loaded;
+    pendingImageNode.imgCropped = null;
+    pendingImageNode.imgCacheSize = -1;
+  }
+  pendingImageNode = null;
+}
 
 // ── Hub orbit adjustment ──────────────────────────────────────────────────────
 void adjustHubOrbit(int frameId, int slot, float delta) {
@@ -106,20 +152,16 @@ void initTwoState() {
 
 void initSlotStates() {
   if (slotStates != null && slotStates.length == nOuter) return;
-  slotStates  = new NodeState[nOuter][];
-  slotOrbitR  = new float[nOuter];
-  slotScale   = new float[nOuter];
-
+  slotStates = new NodeState[nOuter][];
+  slotOrbitR = new float[nOuter];
+  slotScale  = new float[nOuter];
   float refOrbit = 80.0;
   float boundR   = 55.0;
-
   for (int i = 0; i < nOuter; i++) {
     int type = (i < slotTypes.length) ? slotTypes[i] : SLOT_PLAIN;
     int sn   = (i < slotN.length)     ? slotN[i]     : 4;
-
     slotOrbitR[i] = refOrbit;
     slotScale[i]  = boundR / refOrbit;
-
     if (type == SLOT_PLAIN) {
       slotStates[i] = null;
     } else {

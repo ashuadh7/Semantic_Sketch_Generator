@@ -6,12 +6,27 @@ float inspectorCX, inspectorCY;
 float[][] hitTargets;
 int       hitCount;
 
-// Sidebar geometry
-final int   SB_W    = 210;
+final int   SB_W    = 220;
 final int   SB_PAD  = 14;
 final color SB_BG   = color(248);
 final color SB_LINE = color(210);
 
+// ── Text editing state ────────────────────────────────────────────────────────
+boolean editingLabel  = false;
+String  editBuffer    = "";
+int     cursorBlink   = 0;
+
+void activateLabelEdit(NodeState ns) {
+  editingLabel = true;
+  editBuffer   = ns.label;
+}
+
+void commitLabelEdit(NodeState ns) {
+  if (ns != null && editBuffer.length() > 0) ns.label = editBuffer;
+  editingLabel = false;
+}
+
+// ── Hit targets ───────────────────────────────────────────────────────────────
 void resetHitTargets(int maxNodes) {
   hitTargets = new float[maxNodes][4];
   hitCount   = 0;
@@ -84,22 +99,28 @@ void drawSelectionRing() {
 }
 
 void drawHUD() {
-  NodeState ns = selectedNodeState();
   fill(MUTED); noStroke(); textSize(11); textAlign(CENTER, BOTTOM);
-  if (ns == null) {
+  if (selectedNodeState() == null) {
     text("Click a node to select  ·  [ ] radius  ·  , . orbit (hub)  ·  Tab  ·  Esc",
          (width - SB_W) / 2.0, height - 8);
     return;
   }
-  int[] dec  = decodeStateIdx(selectedStateIdx());
-  int local  = dec[1];
+  if (editingLabel) {
+    fill(color(30,80,180)); noStroke(); textSize(11); textAlign(CENTER, BOTTOM);
+    text("Editing label — Enter to confirm  ·  Esc to cancel",
+         (width - SB_W) / 2.0, height - 8);
+    return;
+  }
+  int[] dec = decodeStateIdx(selectedStateIdx());
+  int local = dec[1];
   boolean isHub = (local == 0);
-  fill(30, 80, 180); noStroke(); textSize(11); textAlign(CENTER, BOTTOM);
+  NodeState ns = selectedNodeState();
+  fill(color(30,80,180));
   String hud = "● " + ns.label
-             + "   r = " + nf(ns.r, 0, 1)
-             + (isHub && hubOrbitR() > 0 ? "   orbit = " + nf(hubOrbitR(), 0, 1) : "")
-             + "   [ ] resize" + (isHub ? "  ·  , . orbit" : "")
-             + "  ·  Tab  ·  Esc";
+             + "   r=" + nf(ns.r,0,1)
+             + (isHub && hubOrbitR()>0 ? "  orbit="+nf(hubOrbitR(),0,1) : "")
+             + "  [ ] resize" + (isHub ? "  , . orbit" : "")
+             + "  Tab  Esc";
   text(hud, (width - SB_W) / 2.0, height - 8);
 }
 
@@ -118,15 +139,12 @@ float sbX() { return width - SB_W; }
 
 void drawSidebar() {
   float x = sbX();
-
-  // Background
   fill(SB_BG); noStroke();
   rect(x, 0, SB_W, height);
   stroke(SB_LINE); strokeWeight(1);
   line(x, 0, x, height);
 
   NodeState ns = selectedNodeState();
-
   if (ns == null) {
     fill(MUTED); noStroke(); textSize(12); textAlign(CENTER, CENTER);
     text("Select a node\nto edit properties", x + SB_W/2.0, height/2.0);
@@ -148,19 +166,71 @@ void drawSidebar() {
   y += 38;
   sbDivider(y); y += 12;
 
-  // ── Node section ───────────────────────────────────────────────────────────
-  y = sbSectionLabel("Node", x, y);
+  // ── Label editor ───────────────────────────────────────────────────────────
+  y = sbSectionLabel("Label", x, y);
 
+  // Text field
+  boolean fieldActive = editingLabel;
+  fill(fieldActive ? color(230,240,255) : color(238));
+  stroke(fieldActive ? color(80,140,210) : color(200));
+  strokeWeight(fieldActive ? 1.8 : 1);
+  rect(x + SB_PAD, y, SB_W - SB_PAD*2, 24, 4);
+
+  String displayed = fieldActive ? editBuffer : ns.label;
+  String cursor    = (fieldActive && frameCount % 60 < 30) ? "|" : "";
+  fill(FG); noStroke(); textSize(12); textAlign(LEFT, CENTER);
+  text(displayed + cursor, x + SB_PAD + 6, y + 12);
+
+  sbRegisterClick(x + SB_PAD, y, SB_W - SB_PAD*2, 24, "LABEL_FIELD");
+  y += 32;
+  sbDivider(y); y += 12;
+
+  // ── Node appearance ────────────────────────────────────────────────────────
+  y = sbSectionLabel("Node", x, y);
   y = sbColorRow("Fill", ns.fillCol, "NODE_COLOR", x, y, ns);
-  y = sbAlphaSlider("Alpha", ns.alpha, "NODE_ALPHA", x, y);
+  y = sbAlphaSlider("Alpha (overlay)", ns.alpha, "NODE_ALPHA", x, y);
   y = sbShapeRow(ns.shapeType, x, y);
   y += 4;
   sbDivider(y); y += 12;
 
-  // ── Orbit section (hub only) ───────────────────────────────────────────────
+  // ── Image ──────────────────────────────────────────────────────────────────
+  y = sbSectionLabel("Image", x, y);
+
+  // Preview or placeholder
+  float previewSize = 60;
+  float previewX    = x + SB_W/2.0 - previewSize/2.0;
+  if (ns.img != null) {
+    ns.rebuildCrop((int)previewSize);
+    if (ns.cropCircle && ns.imgCropped != null) {
+      image(ns.imgCropped, previewX, y, previewSize, previewSize);
+    } else {
+      image(ns.img, previewX, y, previewSize, previewSize);
+    }
+    stroke(200); strokeWeight(1); noFill();
+    if (ns.cropCircle) ellipse(previewX + previewSize/2, y + previewSize/2, previewSize, previewSize);
+    else rect(previewX, y, previewSize, previewSize, 4);
+  } else {
+    fill(230); stroke(200); strokeWeight(1);
+    rect(previewX, y, previewSize, previewSize, 6);
+    fill(MUTED); noStroke(); textSize(10); textAlign(CENTER, CENTER);
+    text("no image", previewX + previewSize/2, y + previewSize/2);
+  }
+  y += previewSize + 8;
+
+  // Add / Remove buttons
+  float btnW2 = (SB_W - SB_PAD*2 - 4) / 2.0;
+  sbButton("Add image…", x + SB_PAD,          y, btnW2, 24, "IMG_ADD", false);
+  sbButton("Remove",     x + SB_PAD + btnW2+4, y, btnW2, 24, "IMG_REMOVE", ns.img == null);
+  y += 32;
+
+  // Crop toggle (only if image present)
+  y = sbToggle("Circular crop", ns.cropCircle, "IMG_CROP", x, y, ns.img == null);
+  y += 4;
+  sbDivider(y); y += 12;
+
+  // ── Orbit (hub only) ───────────────────────────────────────────────────────
   float hubOrb = hubOrbitR();
   boolean showOrbit = isHub && hubOrb > 0;
-
   y = sbSectionLabel("Orbit", x, y, showOrbit);
 
   if (showOrbit) {
@@ -171,17 +241,16 @@ void drawSidebar() {
     text("(satellites only)", x + SB_PAD, y);
     y += 20;
   }
-
   y += 4;
   sbDivider(y); y += 12;
 
-  // ── Promote/demote stub (future) ───────────────────────────────────────────
+  // ── Diagram type stubs ─────────────────────────────────────────────────────
   y = sbSectionLabel("Diagram type", x, y);
-  sbStubRow("Expand to sub-diagram", x, y); y += 24;
-  sbStubRow("Change type / n", x, y);       y += 24;
+  sbStubRow("Expand to sub-diagram", x, y); y += 28;
+  sbStubRow("Change type / n",       x, y);
 }
 
-// ── Sidebar helpers ───────────────────────────────────────────────────────────
+// ── Sidebar component helpers ─────────────────────────────────────────────────
 
 void sbDivider(float y) {
   stroke(SB_LINE); strokeWeight(1);
@@ -198,28 +267,21 @@ float sbSectionLabel(String label, float x, float y, boolean active) {
   return y + 18;
 }
 
-// Color swatch row — 3 swatches: red, gray, green
 float sbColorRow(String label, color current, String tag, float x, float y, NodeState ns) {
   fill(MUTED); noStroke(); textSize(11); textAlign(LEFT, TOP);
   text(label, x + SB_PAD, y);
-
   color[] cols = { color(200,70,70), color(160), color(70,170,100) };
-  String[] names = { "red", "gray", "green" };
   float sw = 22; float gap = 6;
   float startX = x + SB_W - SB_PAD - (sw+gap)*3 + gap;
-
   for (int i = 0; i < 3; i++) {
     float sx = startX + i*(sw+gap);
     boolean sel = (int)red(current)==(int)red(cols[i])
                && (int)green(current)==(int)green(cols[i])
                && (int)blue(current)==(int)blue(cols[i]);
-    fill(cols[i]);
-    stroke(sel ? color(40,80,180) : color(180));
+    fill(cols[i]); stroke(sel ? color(40,80,180) : color(180));
     strokeWeight(sel ? 2.5 : 1);
     rect(sx, y-1, sw, sw, 4);
-
-    // Register click zone
-    sbRegisterClick(sx, y-1, sw, sw, tag + "_" + i);
+    sbRegisterClick(sx, y-1, sw, sw, tag+"_"+i);
   }
   return y + sw + 6;
 }
@@ -230,25 +292,15 @@ float sbAlphaSlider(String label, int current, String tag, float x, float y) {
   fill(FG); textAlign(RIGHT, TOP);
   text(current, x + SB_W - SB_PAD, y);
   y += 16;
-
   float tx = x + SB_PAD;
   float tw = SB_W - SB_PAD*2;
   float th = 6;
-
-  // Track
-  fill(210); noStroke();
-  rect(tx, y, tw, th, 3);
-
-  // Fill
-  fill(100, 140, 220);
-  rect(tx, y, tw * (current / 255.0), th, 3);
-
-  // Thumb
-  float thumbX = tx + tw * (current / 255.0);
+  fill(210); noStroke(); rect(tx, y, tw, th, 3);
+  fill(100,140,220); rect(tx, y, tw*(current/255.0), th, 3);
+  float thumbX = tx + tw*(current/255.0);
   fill(255); stroke(150); strokeWeight(1.5);
-  ellipse(thumbX, y + th/2, 12, 12);
-
-  sbRegisterClick(tx, y - 16, tw, th + 20, tag);
+  ellipse(thumbX, y+th/2, 12, 12);
+  sbRegisterClick(tx, y-16, tw, th+20, tag);
   return y + th + 12;
 }
 
@@ -256,11 +308,9 @@ float sbShapeRow(int current, float x, float y) {
   fill(MUTED); noStroke(); textSize(11); textAlign(LEFT, TOP);
   text("Shape", x + SB_PAD, y);
   y += 16;
-
   String[] labels = { "●", "▬", "◆" };
   int[]    types  = { SHAPE_CIRCLE, SHAPE_RECT, SHAPE_DIAMOND };
   float    bw     = (SB_W - SB_PAD*2 - 8) / 3.0;
-
   for (int i = 0; i < 3; i++) {
     float bx = x + SB_PAD + i*(bw+4);
     boolean sel = (current == types[i]);
@@ -270,8 +320,8 @@ float sbShapeRow(int current, float x, float y) {
     rect(bx, y, bw, 26, 5);
     fill(sel ? color(30,80,160) : FG);
     noStroke(); textSize(14); textAlign(CENTER, CENTER);
-    text(labels[i], bx + bw/2, y + 13);
-    sbRegisterClick(bx, y, bw, 26, "SHAPE_" + i);
+    text(labels[i], bx+bw/2, y+13);
+    sbRegisterClick(bx, y, bw, 26, "SHAPE_"+i);
   }
   return y + 32;
 }
@@ -280,11 +330,9 @@ float sbOrbitTypeRow(boolean dashed, float x, float y) {
   fill(MUTED); noStroke(); textSize(11); textAlign(LEFT, TOP);
   text("Orbit line", x + SB_PAD, y);
   y += 16;
-
   String[] labels = { "- - -", "───" };
   boolean[] vals  = { true, false };
   float bw = (SB_W - SB_PAD*2 - 4) / 2.0;
-
   for (int i = 0; i < 2; i++) {
     float bx = x + SB_PAD + i*(bw+4);
     boolean sel = (dashed == vals[i]);
@@ -294,25 +342,46 @@ float sbOrbitTypeRow(boolean dashed, float x, float y) {
     rect(bx, y, bw, 26, 5);
     fill(sel ? color(30,80,160) : FG);
     noStroke(); textSize(11); textAlign(CENTER, CENTER);
-    text(labels[i], bx + bw/2, y + 13);
-    sbRegisterClick(bx, y, bw, 26, "ORBIT_TYPE_" + i);
+    text(labels[i], bx+bw/2, y+13);
+    sbRegisterClick(bx, y, bw, 26, "ORBIT_TYPE_"+i);
   }
   return y + 32;
 }
 
+float sbToggle(String label, boolean state, String tag, float x, float y, boolean disabled) {
+  fill(disabled ? color(200) : MUTED); noStroke(); textSize(11); textAlign(LEFT, CENTER);
+  text(label, x + SB_PAD, y + 10);
+  float tx = x + SB_W - SB_PAD - 36;
+  float ty = y + 2;
+  fill(disabled ? color(220) : (state ? color(80,160,100) : color(190)));
+  noStroke(); rect(tx, ty, 36, 16, 8);
+  fill(255); noStroke();
+  ellipse(state ? tx+26 : tx+10, ty+8, 12, 12);
+  if (!disabled) sbRegisterClick(tx, ty, 36, 16, tag);
+  return y + 26;
+}
+
+void sbButton(String label, float x, float y, float w, float h, String tag, boolean disabled) {
+  fill(disabled ? color(225) : color(235));
+  stroke(disabled ? color(210) : color(190));
+  strokeWeight(1); rect(x, y, w, h, 4);
+  fill(disabled ? color(180) : FG);
+  noStroke(); textSize(11); textAlign(CENTER, CENTER);
+  text(label, x+w/2, y+h/2);
+  if (!disabled) sbRegisterClick(x, y, w, h, tag);
+}
+
 void sbStubRow(String label, float x, float y) {
   fill(color(220)); noStroke();
-  rect(x + SB_PAD, y, SB_W - SB_PAD*2, 20, 4);
+  rect(x + SB_PAD, y, SB_W - SB_PAD*2, 22, 4);
   fill(MUTED); textSize(10); textAlign(LEFT, CENTER);
-  text(label + " (soon)", x + SB_PAD + 6, y + 10);
+  text(label + " (soon)", x + SB_PAD + 6, y + 11);
 }
 
 // ── Click zone registry ───────────────────────────────────────────────────────
-// Stores sidebar clickable zones each frame; checked in mousePressed
-
-final int MAX_SB_ZONES = 64;
-float[][] sbZones     = new float[MAX_SB_ZONES][4]; // x,y,w,h
-String[]  sbZoneTags  = new String[MAX_SB_ZONES];
+final int MAX_SB_ZONES = 80;
+float[][] sbZones    = new float[MAX_SB_ZONES][4];
+String[]  sbZoneTags = new String[MAX_SB_ZONES];
 int       sbZoneCount = 0;
 
 void sbResetZones() { sbZoneCount = 0; }
@@ -341,15 +410,16 @@ void sbHandleClick(String tag, float mx, float my) {
   NodeState ns = selectedNodeState();
   if (ns == null) return;
 
-  color[] nodeCols  = { color(200,70,70), color(160), color(70,170,100) };
-  color[] orbitCols = { color(200,70,70), color(160), color(70,170,100) };
+  color[] cols = { color(200,70,70), color(160), color(70,170,100) };
 
-  if (tag.startsWith("NODE_COLOR_")) {
+  if (tag.equals("LABEL_FIELD")) {
+    activateLabelEdit(ns);
+  } else if (tag.startsWith("NODE_COLOR_")) {
     int idx = int(tag.charAt(tag.length()-1)) - int('0');
-    ns.fillCol = nodeCols[idx];
+    ns.fillCol = cols[idx];
   } else if (tag.startsWith("ORBIT_COLOR_")) {
     int idx = int(tag.charAt(tag.length()-1)) - int('0');
-    ns.orbitCol = orbitCols[idx];
+    ns.orbitCol = cols[idx];
   } else if (tag.startsWith("SHAPE_")) {
     int idx = int(tag.charAt(tag.length()-1)) - int('0');
     ns.shapeType = idx;
@@ -357,10 +427,17 @@ void sbHandleClick(String tag, float mx, float my) {
     int idx = int(tag.charAt(tag.length()-1)) - int('0');
     ns.orbitDashed = (idx == 0);
   } else if (tag.equals("NODE_ALPHA")) {
-    // Drag handled in mouseDragged
     float tx = sbX() + SB_PAD;
     float tw = SB_W - SB_PAD*2;
     ns.alpha = (int)constrain(map(mx, tx, tx+tw, 0, 255), 0, 255);
+  } else if (tag.equals("IMG_ADD")) {
+    pendingImageNode = ns;
+    selectInput("Select an image", "imageSelected");
+  } else if (tag.equals("IMG_REMOVE")) {
+    ns.img = null; ns.imgCropped = null; ns.imgCacheSize = -1;
+  } else if (tag.equals("IMG_CROP")) {
+    ns.cropCircle = !ns.cropCircle;
+    ns.imgCropped = null; ns.imgCacheSize = -1;
   }
 }
 
@@ -385,7 +462,19 @@ void sbMouseDragged(float mx, float my) {
   }
 }
 
-void sbMouseReleased() {
-  sbDragging = false;
-  sbDragTag  = null;
+void sbMouseReleased() { sbDragging = false; sbDragTag = null; }
+
+// ── Key handler for label editing (called from Shapes.pde keyPressed) ─────────
+boolean sbKeyPressed() {
+  if (!editingLabel) return false;
+  NodeState ns = selectedNodeState();
+  if (key == ENTER || key == RETURN) { commitLabelEdit(ns); return true; }
+  if (key == ESC)  { editingLabel = false; key = 0; return true; }
+  if (key == BACKSPACE) {
+    if (editBuffer.length() > 0)
+      editBuffer = editBuffer.substring(0, editBuffer.length()-1);
+    return true;
+  }
+  if (key >= 32 && key < 127) { editBuffer += key; return true; }
+  return true;
 }

@@ -28,7 +28,7 @@ String[] btnLabels = {
 };
 
 void setup() {
-  size(1020, 880);
+  size(1040, 880);
   btnW    = ((width - SB_W) - (numButtons+1)*btnGap) / numButtons;
   canvasY = btnTop + btnH + btnGap + 16;
   textFont(createFont("Helvetica", 13));
@@ -40,7 +40,6 @@ void draw() {
   background(BG);
   drawButtons();
 
-  // Canvas center excludes sidebar
   inspectorCX = (width - SB_W) / 2.0;
   inspectorCY = canvasY + (height - 20 - canvasY) / 2.0;
 
@@ -56,8 +55,6 @@ void draw() {
   }
 
   drawHUD();
-
-  // Sidebar — reset zones each frame then redraw
   sbResetZones();
   drawSidebar();
 }
@@ -82,35 +79,31 @@ void drawFramework(int id) {
 
 // ─── Mouse ───────────────────────────────────────────────────────────────────
 void mousePressed() {
-  // Sidebar takes priority
-  if (mouseX >= sbX()) {
-    sbMousePressed(mouseX, mouseY);
-    return;
-  }
-  // Buttons
+  if (mouseX >= sbX()) { sbMousePressed(mouseX, mouseY); return; }
   for (int i = 0; i < numButtons; i++) {
     float x = btnGap + i*(btnW+btnGap);
     float y = btnTop;
     if (mouseX>x && mouseX<x+btnW && mouseY>y && mouseY<y+btnH) {
-      if (activeFrame != i) selectedNode = -1;
+      if (activeFrame != i) { selectedNode=-1; editingLabel=false; }
       activeFrame = (activeFrame==i) ? -1 : i;
       return;
     }
   }
-  // Canvas node pick
-  if (activeFrame >= 0) selectedNode = pickNode(mouseX, mouseY);
+  if (activeFrame >= 0) {
+    // Clicking canvas while editing commits the label
+    if (editingLabel) { commitLabelEdit(selectedNodeState()); }
+    selectedNode = pickNode(mouseX, mouseY);
+  }
 }
 
-void mouseDragged() {
-  if (mouseX >= sbX()) sbMouseDragged(mouseX, mouseY);
-}
-
-void mouseReleased() {
-  sbMouseReleased();
-}
+void mouseDragged() { if (mouseX >= sbX()) sbMouseDragged(mouseX, mouseY); }
+void mouseReleased() { sbMouseReleased(); }
 
 // ─── Keyboard ────────────────────────────────────────────────────────────────
 void keyPressed() {
+  // Label editing takes full priority
+  if (sbKeyPressed()) return;
+
   if (key == TAB) {
     selectedNode = (hitCount > 0) ? (selectedNode+1) % hitCount : -1;
     return;
@@ -119,17 +112,16 @@ void keyPressed() {
 
   NodeState ns = selectedNodeState();
   if (ns == null) return;
-
   int[] dec  = decodeStateIdx(selectedStateIdx());
   int slot   = dec[0];
   int local  = dec[1];
   boolean isHub = (local == 0);
 
   switch (key) {
-    case '[': ns.r = max(8, ns.r - 2); break;
-    case ']': ns.r =        ns.r + 2;  break;
-    case ',': if (isHub) adjustHubOrbit(activeFrame, slot, -5); break;
-    case '.': if (isHub) adjustHubOrbit(activeFrame, slot,  5); break;
+    case '[': ns.r = max(8, ns.r-2); ns.imgCacheSize=-1; break;
+    case ']': ns.r =        ns.r+2;  ns.imgCacheSize=-1; break;
+    case ',': if (isHub) adjustHubOrbit(activeFrame, slot,-5); break;
+    case '.': if (isHub) adjustHubOrbit(activeFrame, slot, 5); break;
   }
 }
 
@@ -153,8 +145,7 @@ void drawButtons() {
     noStroke(); textSize(13); textAlign(LEFT,TOP);
     text(btnLabels[i], x+12, y+12);
     fill(active ? color(80,130,200) : MUTED);
-    textSize(11);
-    text(meta[i], x+12, y+32);
+    textSize(11); text(meta[i], x+12, y+32);
   }
 }
 
@@ -181,13 +172,58 @@ void drawPlaceholder() {
   text("This slot is empty — add your own framework here.", 0, 0);
 }
 
-// ─── Style-aware draw helpers ─────────────────────────────────────────────────
-
-// Replaces labeledCircle — reads style from NodeState
+// ─── Style-aware node renderer ────────────────────────────────────────────────
+// Label goes below the circle when image present, centered inside when no image.
 void styledNode(float x, float y, NodeState ns, String sub) {
-  color fc = color(red(ns.fillCol), green(ns.fillCol), blue(ns.fillCol), ns.alpha);
-  fill(fc); stroke(BORDER); strokeWeight(1.5);
+  int diameter = (int)(ns.r * 2);
+  boolean hasImg = (ns.img != null);
 
+  // 1. Draw shape outline + clip region
+  fill(255); stroke(BORDER); strokeWeight(1.5);
+  drawShape(x, y, ns);
+
+  // 2. Draw image inside shape (clipped visually by shape boundary)
+  if (hasImg) {
+    ns.rebuildCrop(diameter);
+    PImage src = (ns.cropCircle && ns.imgCropped != null) ? ns.imgCropped : ns.img;
+    // Use clip to restrict image to shape boundary
+    if (ns.shapeType == SHAPE_CIRCLE || ns.cropCircle) {
+      // Draw circular crop centered
+      imageMode(CENTER);
+      image(src, x, y, ns.r*2, ns.r*2);
+      imageMode(CORNER);
+    } else {
+      imageMode(CENTER);
+      image(ns.img, x, y, ns.r*2, ns.r*2);
+      imageMode(CORNER);
+    }
+  }
+
+  // 3. Fill color as overlay (tint layer on top of image, or base fill if no image)
+  color fc = color(red(ns.fillCol), green(ns.fillCol), blue(ns.fillCol),
+                   hasImg ? ns.alpha : 255);
+  fill(fc); noStroke();
+  if (hasImg) drawShape(x, y, ns);   // overlay only when image present
+  else { fill(fc); stroke(BORDER); strokeWeight(1.5); drawShape(x, y, ns); }
+
+  // 4. Border on top of everything
+  noFill(); stroke(BORDER); strokeWeight(1.5);
+  drawShape(x, y, ns);
+
+  // 5. Label — below circle if image present, centered inside if not
+  fill(FG); noStroke();
+  if (hasImg) {
+    // Text below circle
+    textSize(12); textAlign(CENTER, TOP);
+    text(ns.label, x, y + ns.r + 4);
+  } else {
+    textSize(13); textAlign(CENTER, CENTER);
+    text(ns.label, x, sub.isEmpty() ? y : y - 8);
+    if (!sub.isEmpty()) { fill(MUTED); textSize(11); text(sub, x, y+10); }
+  }
+}
+
+void drawShape(float x, float y, NodeState ns) {
   if (ns.shapeType == SHAPE_RECT) {
     rectMode(CENTER);
     rect(x, y, ns.r*2, ns.r*2, ns.r*0.3);
@@ -195,32 +231,20 @@ void styledNode(float x, float y, NodeState ns, String sub) {
   } else if (ns.shapeType == SHAPE_DIAMOND) {
     float r = ns.r;
     beginShape();
-      vertex(x,   y-r);
-      vertex(x+r, y);
-      vertex(x,   y+r);
-      vertex(x-r, y);
+      vertex(x,   y-r); vertex(x+r, y);
+      vertex(x,   y+r); vertex(x-r, y);
     endShape(CLOSE);
   } else {
     ellipse(x, y, ns.r*2, ns.r*2);
   }
-
-  fill(FG); noStroke(); textSize(13); textAlign(CENTER,CENTER);
-  text(ns.label, x, sub.isEmpty() ? y : y-8);
-  if (!sub.isEmpty()) { fill(MUTED); textSize(11); text(sub, x, y+10); }
 }
 
-// Replaces dashedCircle — reads orbit style from NodeState
 void styledOrbit(float x, float y, float r, NodeState hubNs) {
-  color oc = hubNs.orbitCol;
-  stroke(oc); strokeWeight(1); noFill();
-  if (hubNs.orbitDashed) {
-    dashedCircle(x, y, r, 7, 5);
-  } else {
-    ellipse(x, y, r*2, r*2);
-  }
+  stroke(hubNs.orbitCol); strokeWeight(1); noFill();
+  if (hubNs.orbitDashed) dashedCircle(x, y, r, 7, 5);
+  else ellipse(x, y, r*2, r*2);
 }
 
-// Plain helpers still used internally
 void dashedCircle(float x, float y, float r, float dashLen, float gapLen) {
   float step = dashLen/r + gapLen/r;
   noFill();
@@ -230,7 +254,7 @@ void dashedCircle(float x, float y, float r, float dashLen, float gapLen) {
 
 void arrow(float x1, float y1, float x2, float y2, float headSize) {
   line(x1,y1,x2,y2);
-  float ang = atan2(y2-y1,x2-x1);
+  float ang = atan2(y2-y1, x2-x1);
   fill(FG); noStroke();
   triangle(x2,y2,
            x2-headSize*cos(ang-0.4),y2-headSize*sin(ang-0.4),
@@ -238,7 +262,6 @@ void arrow(float x1, float y1, float x2, float y2, float headSize) {
   stroke(FG); noFill();
 }
 
-// Keep for backward compat inside draw functions that still call it
 void labeledCircle(float x, float y, float r, String title, String sub) {
   fill(245); stroke(BORDER); strokeWeight(1.5);
   ellipse(x, y, r*2, r*2);
