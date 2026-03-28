@@ -12,11 +12,17 @@ final color SB_BG   = color(248);
 final color SB_LINE = color(210);
 
 // ── Text editing ──────────────────────────────────────────────────────────────
-boolean editingLabel = false;
-String  editBuffer   = "";
+boolean editingLabel    = false;
+String  editBuffer      = "";
+
+boolean editingFilename = false;
+String  filenameBuffer  = "";
 
 void activateLabelEdit(NodeState ns) { editingLabel=true; editBuffer=ns.label; }
 void commitLabelEdit(NodeState ns)   { if(ns!=null&&editBuffer.length()>0) ns.label=editBuffer; editingLabel=false; }
+
+void activateFilenameEdit() { editingFilename=true; }
+void commitFilenameEdit()   { editingFilename=false; }
 
 // ── Hit registry ──────────────────────────────────────────────────────────────
 void resetHitTargets(int max) { hitTargets=new float[max][4]; hitCount=0; }
@@ -142,9 +148,10 @@ void drawSidebar() {
   NodeState ns = selectedNodeState();
   if (ns==null) {
     // Show save/load even with no selection
-    float y = height - 120;
+    float y = height - 158;
     sbDivider(y); y += 12;
     y = sbSectionLabel("Session", x, y);
+    y = sbFilenameField(x, y);
     float bw=(SB_W-SB_PAD*2-4)/2.0;
     sbButton("Save image", x+SB_PAD,       y, bw, 28, "SAVE_IMAGE", false);
     sbButton("Save state", x+SB_PAD+bw+4,  y, bw, 28, "SAVE_STATE", false);
@@ -260,11 +267,31 @@ void drawSidebar() {
 
   // Save / Load
   y=sbSectionLabel("Session",x,y);
+  y=sbFilenameField(x,y);
   float bw2=(SB_W-SB_PAD*2-4)/2.0;
   sbButton("Save image",x+SB_PAD,      y,bw2,26,"SAVE_IMAGE",false);
   sbButton("Save state",x+SB_PAD+bw2+4,y,bw2,26,"SAVE_STATE",false);
   y+=34;
   sbButton("Load state",x+SB_PAD,y,SB_W-SB_PAD*2,26,"LOAD_STATE",false);
+}
+
+// ── Filename field helper ─────────────────────────────────────────────────────
+float sbFilenameField(float x, float y) {
+  fill(MUTED); noStroke(); textSize(11); textAlign(LEFT, TOP);
+  text("Filename (optional)", x+SB_PAD, y); y += 14;
+  boolean fe = editingFilename;
+  fill(fe ? color(230,240,255) : color(238));
+  stroke(fe ? color(80,140,210) : color(200));
+  strokeWeight(fe ? 1.8 : 1);
+  rect(x+SB_PAD, y, SB_W-SB_PAD*2, 24, 4);
+  String display = filenameBuffer.length()>0 ? filenameBuffer : "auto timestamp";
+  if (fe) display = filenameBuffer;
+  fill(filenameBuffer.length()==0 && !fe ? MUTED : FG);
+  noStroke(); textSize(12); textAlign(LEFT, CENTER);
+  text(display + (fe && frameCount%60<30 ? "|" : ""), x+SB_PAD+6, y+12);
+  sbRegisterClick(x+SB_PAD, y, SB_W-SB_PAD*2, 24, "FILENAME_FIELD");
+  y += 32;
+  return y;
 }
 
 // ── Sidebar helpers ───────────────────────────────────────────────────────────
@@ -347,8 +374,9 @@ void sbHandleClick(String tag,float mx,float my){
   color[]cols={color(200,70,70),color(160),color(70,170,100)};
 
   // Session — no node needed
-  if(tag.equals("SAVE_IMAGE")){saveCanvasImage();return;}
-  if(tag.equals("SAVE_STATE")){saveState();return;}
+  if(tag.equals("FILENAME_FIELD")){activateFilenameEdit();return;}
+  if(tag.equals("SAVE_IMAGE")){commitFilenameEdit();saveCanvasImage(filenameBuffer);return;}
+  if(tag.equals("SAVE_STATE")){commitFilenameEdit();saveState(filenameBuffer);return;}
   if(tag.equals("LOAD_STATE")){selectInput("Load state file","stateFileSelected");return;}
 
   if(ns==null)return;
@@ -399,6 +427,13 @@ void sbMouseDragged(float mx,float my){
 void sbMouseReleased(){sbDragging=false;sbDragTag=null;}
 
 boolean sbKeyPressed(){
+  if(editingFilename){
+    if(key==ENTER||key==RETURN){commitFilenameEdit();return true;}
+    if(key==ESC){editingFilename=false;key=0;return true;}
+    if(key==BACKSPACE){if(filenameBuffer.length()>0)filenameBuffer=filenameBuffer.substring(0,filenameBuffer.length()-1);return true;}
+    if(key>=32&&key<127){filenameBuffer+=key;return true;}
+    return true;
+  }
   if(!editingLabel)return false;
   NodeState ns=selectedNodeState();
   if(key==ENTER||key==RETURN){commitLabelEdit(ns);return true;}
