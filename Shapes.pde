@@ -142,10 +142,15 @@ void styledNode(float x,float y,NodeState ns){
   if(hasImg){
     float lx=x+(ns.r+10)*sin(ns.labelAng), ly=y-(ns.r+10)*cos(ns.labelAng);
     float nx=sin(ns.labelAng), ny=-cos(ns.labelAng);
-    textSize(ns.labelSize);
-    if(abs(nx)>=abs(ny)) textAlign(nx>0?LEFT:RIGHT, CENTER);
-    else                 textAlign(CENTER, ny<0?BOTTOM:TOP);
-    text(ns.label,lx,ly);
+    int ha,va;
+    if(abs(nx)>=abs(ny)){ha=nx>0?LEFT:RIGHT;va=CENTER;}
+    else{ha=CENTER;va=ny<0?BOTTOM:TOP;}
+    textSize(ns.labelSize);textAlign(ha,va);text(ns.label,lx,ly);
+    if(!ns.subLabel.isEmpty()){
+      fill(MUTED);textSize(max(9,ns.labelSize-2));
+      float subLy=(va==BOTTOM)?ly-(ns.labelSize+2):(va==TOP)?ly+(ns.labelSize+2):ly+ns.labelSize/2+2;
+      textAlign(ha,TOP);text(ns.subLabel,lx,subLy);
+    }
   } else{textSize(ns.labelSize);textAlign(CENTER,CENTER);text(ns.label,x,ns.subLabel.isEmpty()?y:y-8);
     if(!ns.subLabel.isEmpty()){fill(MUTED);textSize(max(9,ns.labelSize-2));text(ns.subLabel,x,y+10);}}}
 
