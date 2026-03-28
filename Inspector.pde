@@ -200,14 +200,18 @@ void drawSidebar() {
   float previewSize = 60;
   float previewX    = x + SB_W/2.0 - previewSize/2.0;
   if (ns.img != null) {
-    ns.rebuildCrop((int)previewSize);
-    if (ns.cropCircle && ns.imgCropped != null) {
-      image(ns.imgCropped, previewX, y, previewSize, previewSize);
+    ns.rebuildMask((int)previewSize);
+    if (ns.cropToShape && ns.imgMasked != null) {
+      image(ns.imgMasked, previewX, y, previewSize, previewSize);
     } else {
-      image(ns.img, previewX, y, previewSize, previewSize);
+      // Fit mode preview: scale to diagonal
+      float aspect = (float)ns.img.width / ns.img.height;
+      float pH = previewSize / sqrt(aspect*aspect + 1);
+      float pW = pH * aspect;
+      image(ns.img, previewX + (previewSize-pW)/2, y + (previewSize-pH)/2, pW, pH);
     }
     stroke(200); strokeWeight(1); noFill();
-    if (ns.cropCircle) ellipse(previewX + previewSize/2, y + previewSize/2, previewSize, previewSize);
+    if (ns.cropToShape) ellipse(previewX + previewSize/2, y + previewSize/2, previewSize, previewSize);
     else rect(previewX, y, previewSize, previewSize, 4);
   } else {
     fill(230); stroke(200); strokeWeight(1);
@@ -224,7 +228,7 @@ void drawSidebar() {
   y += 32;
 
   // Crop toggle (only if image present)
-  y = sbToggle("Circular crop", ns.cropCircle, "IMG_CROP", x, y, ns.img == null);
+  y = sbToggle("Crop to shape", ns.cropToShape, "IMG_CROP", x, y, ns.img == null);
   y += 4;
   sbDivider(y); y += 12;
 
@@ -434,10 +438,10 @@ void sbHandleClick(String tag, float mx, float my) {
     pendingImageNode = ns;
     selectInput("Select an image", "imageSelected");
   } else if (tag.equals("IMG_REMOVE")) {
-    ns.img = null; ns.imgCropped = null; ns.imgCacheSize = -1;
+    ns.img = null; ns.invalidateCache();
   } else if (tag.equals("IMG_CROP")) {
-    ns.cropCircle = !ns.cropCircle;
-    ns.imgCropped = null; ns.imgCacheSize = -1;
+    ns.cropToShape = !ns.cropToShape;
+    ns.invalidateCache();
   }
 }
 

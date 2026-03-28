@@ -118,8 +118,8 @@ void keyPressed() {
   boolean isHub = (local == 0);
 
   switch (key) {
-    case '[': ns.r = max(8, ns.r-2); ns.imgCacheSize=-1; break;
-    case ']': ns.r =        ns.r+2;  ns.imgCacheSize=-1; break;
+    case '[': ns.r = max(8, ns.r-2); ns.invalidateCache(); break;
+    case ']': ns.r =        ns.r+2;  ns.invalidateCache(); break;
     case ',': if (isHub) adjustHubOrbit(activeFrame, slot,-5); break;
     case '.': if (isHub) adjustHubOrbit(activeFrame, slot, 5); break;
   }
@@ -173,53 +173,67 @@ void drawPlaceholder() {
 }
 
 // ─── Style-aware node renderer ────────────────────────────────────────────────
-// Label goes below the circle when image present, centered inside when no image.
+// Fit mode (cropToShape=false):
+//   Scale image so its diagonal == diameter. Image sits fully inside circle,
+//   no masking, author controls aspect ratio.
+// Crop mode (cropToShape=true):
+//   Image scaled to inscribed circle (fills diameter x diameter square),
+//   then masked to actual shape boundary (circle / rounded-rect / diamond).
+// Fill color is always drawn as overlay on top of image (alpha-blended tint).
+// Label: centered inside when no image, below shape when image present.
 void styledNode(float x, float y, NodeState ns, String sub) {
-  int diameter = (int)(ns.r * 2);
-  boolean hasImg = (ns.img != null);
+  int     diameter = (int)(ns.r * 2);
+  boolean hasImg   = (ns.img != null);
 
-  // 1. Draw shape outline + clip region
+  // 1. Base shape — white fill so image has clean background
   fill(255); stroke(BORDER); strokeWeight(1.5);
   drawShape(x, y, ns);
 
-  // 2. Draw image inside shape (clipped visually by shape boundary)
+  // 2. Image
   if (hasImg) {
-    ns.rebuildCrop(diameter);
-    PImage src = (ns.cropCircle && ns.imgCropped != null) ? ns.imgCropped : ns.img;
-    // Use clip to restrict image to shape boundary
-    if (ns.shapeType == SHAPE_CIRCLE || ns.cropCircle) {
-      // Draw circular crop centered
-      imageMode(CENTER);
-      image(src, x, y, ns.r*2, ns.r*2);
-      imageMode(CORNER);
+    if (ns.cropToShape) {
+      // Crop mode: mask to shape
+      ns.rebuildMask(diameter);
+      if (ns.imgMasked != null) {
+        imageMode(CENTER);
+        image(ns.imgMasked, x, y, diameter, diameter);
+        imageMode(CORNER);
+      }
     } else {
+      // Fit mode: scale so diagonal == diameter → side = diameter / sqrt(2)
+      float imgW, imgH;
+      float aspect = (float)ns.img.width / ns.img.height;
+      // diagonal of image = sqrt(w²+h²) = diameter
+      // w = aspect*h  →  h*sqrt(aspect²+1) = diameter
+      imgH = diameter / sqrt(aspect*aspect + 1);
+      imgW = imgH * aspect;
       imageMode(CENTER);
-      image(ns.img, x, y, ns.r*2, ns.r*2);
+      image(ns.img, x, y, imgW, imgH);
       imageMode(CORNER);
     }
   }
 
-  // 3. Fill color as overlay (tint layer on top of image, or base fill if no image)
+  // 3. Fill color overlay
+  //    No image: opaque fill (standard look)
+  //    With image: translucent tint using ns.alpha
   color fc = color(red(ns.fillCol), green(ns.fillCol), blue(ns.fillCol),
                    hasImg ? ns.alpha : 255);
   fill(fc); noStroke();
-  if (hasImg) drawShape(x, y, ns);   // overlay only when image present
-  else { fill(fc); stroke(BORDER); strokeWeight(1.5); drawShape(x, y, ns); }
+  drawShape(x, y, ns);
 
-  // 4. Border on top of everything
+  // 4. Border on top
   noFill(); stroke(BORDER); strokeWeight(1.5);
   drawShape(x, y, ns);
 
-  // 5. Label — below circle if image present, centered inside if not
+  // 5. Label
   fill(FG); noStroke();
   if (hasImg) {
-    // Text below circle
     textSize(12); textAlign(CENTER, TOP);
     text(ns.label, x, y + ns.r + 4);
   } else {
     textSize(13); textAlign(CENTER, CENTER);
     text(ns.label, x, sub.isEmpty() ? y : y - 8);
-    if (!sub.isEmpty()) { fill(MUTED); textSize(11); text(sub, x, y+10); }
+    if (!sub.isEmpty()) { fill(MUTED); textSize(11); text(sub, x, y + 10); }
   }
 }
 

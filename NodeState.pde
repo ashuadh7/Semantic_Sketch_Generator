@@ -19,10 +19,11 @@ class NodeState {
   boolean orbitDashed = true;
 
   // Image
-  PImage  img          = null;
-  boolean cropCircle   = true;   // circular crop vs uncropped rect
-  PImage  imgCropped   = null;   // cached circular-cropped version
-  int     imgCacheSize = -1;     // r at which cache was built
+  PImage  img           = null;
+  boolean cropToShape   = true;    // true=crop to shape boundary, false=fit diagonal
+  PImage  imgMasked     = null;    // cached masked version
+  int     imgCacheSize  = -1;      // diameter at which cache was built
+  int     imgCacheShape = -1;      // shapeType at which cache was built
 
   // Sub-diagram stub
   int subType = SLOT_PLAIN;
@@ -34,31 +35,68 @@ class NodeState {
     this.ang   = ang;
   }
 
-  // Rebuild the circular-crop cache when r or img changes
-  void rebuildCrop(int diameter) {
-    if (img == null) { imgCropped = null; imgCacheSize = -1; return; }
-    if (!cropCircle)  { imgCropped = null; imgCacheSize = diameter; return; }
-    if (imgCacheSize == diameter && imgCropped != null) return;
+  // Invalidate cache (call when r or shapeType or cropToShape changes)
+  void invalidateCache() {
+    imgMasked    = null;
+    imgCacheSize  = -1;
+    imgCacheShape = -1;
+  }
 
-    imgCacheSize = diameter;
-    PGraphics pg = createGraphics(diameter, diameter, JAVA2D);
-    pg.beginDraw();
-    pg.clear();
-    // Draw white circle as mask shape
-    pg.noStroke();
-    pg.fill(255);
-    pg.ellipse(diameter/2, diameter/2, diameter, diameter);
-    pg.endDraw();
+  // Rebuild masked image cache.
+  // Crop mode: image fills inscribed circle (diameter = 2r), masked to shape.
+  // Fit mode:  no cache needed — drawn inline with diagonal scaling.
+  void rebuildMask(int diameter) {
+    if (img == null || !cropToShape) { imgMasked = null; return; }
+    if (imgCacheSize == diameter && imgCacheShape == shapeType
+        && imgMasked != null) return;
 
-    // Draw image scaled to fill square
+    imgCacheSize  = diameter;
+    imgCacheShape = shapeType;
+
+    // Step 1: draw image scaled to inscribed circle of the shape
+    // Circle/Rect: inscribed circle radius = r (fills diameter x diameter)
+    // Diamond:     inscribed circle radius = r/sqrt(2) — circle touching midpoints of sides
+    int imgSize;
+    if (shapeType == SHAPE_DIAMOND) {
+      imgSize = (int)(diameter / sqrt(2.0));
+    } else {
+      imgSize = diameter;
+    }
+    int offset = (diameter - imgSize) / 2;
+
     PGraphics imgG = createGraphics(diameter, diameter, JAVA2D);
     imgG.beginDraw();
-    imgG.image(img, 0, 0, diameter, diameter);
+    imgG.clear();
+    imgG.image(img, offset, offset, imgSize, imgSize);
     imgG.endDraw();
 
-    // Apply mask
-    imgG.mask(pg);
-    imgCropped = imgG;
+    // Step 2: build mask in shape of the node
+    PGraphics mask = createGraphics(diameter, diameter, JAVA2D);
+    mask.beginDraw();
+    mask.background(0);       // black = transparent
+    mask.noStroke();
+    mask.fill(255);            // white = opaque
+    int cx = diameter / 2;
+    int cy = diameter / 2;
+    int r2 = diameter / 2;
+    if (shapeType == SHAPE_CIRCLE) {
+      mask.ellipse(cx, cy, diameter, diameter);
+    } else if (shapeType == SHAPE_RECT) {
+      int corner = (int)(r2 * 0.3);
+      mask.rect(0, 0, diameter, diameter, corner);
+    } else { // DIAMOND
+      mask.beginShape();
+        mask.vertex(cx,    0);
+        mask.vertex(diameter, cy);
+        mask.vertex(cx,    diameter);
+        mask.vertex(0,     cy);
+      mask.endShape(CLOSE);
+    }
+    mask.endDraw();
+
+    // Step 3: apply mask
+    imgG.mask(mask);
+    imgMasked = imgG;
   }
 }
 
@@ -78,15 +116,14 @@ NodeState[] twoState;
 NodeState[][] slotStates;
 
 // ── Image loading ─────────────────────────────────────────────────────────────
-NodeState pendingImageNode = null;  // which node is waiting for file picker
+NodeState pendingImageNode = null;
 
 void imageSelected(File f) {
   if (f == null || pendingImageNode == null) return;
   PImage loaded = loadImage(f.getAbsolutePath());
   if (loaded != null) {
-    pendingImageNode.img        = loaded;
-    pendingImageNode.imgCropped = null;
-    pendingImageNode.imgCacheSize = -1;
+    pendingImageNode.img = loaded;
+    pendingImageNode.invalidateCache();
   }
   pendingImageNode = null;
 }
