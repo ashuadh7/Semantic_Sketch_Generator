@@ -1,25 +1,31 @@
 // ── NodeState ─────────────────────────────────────────────────────────────────
 
-// Shape type constants
 final int SHAPE_CIRCLE  = 0;
 final int SHAPE_RECT    = 1;
 final int SHAPE_DIAMOND = 2;
 
 class NodeState {
-  String label;
-  float  r;
-  float  ang;
+  String  label;
+  float   r;
+  float   ang;
 
   // Visual style
-  color  fillCol   = color(245);
-  int    alpha     = 255;
-  int    shapeType = SHAPE_CIRCLE;
+  color   fillCol   = color(245);
+  int     alpha     = 255;
+  int     shapeType = SHAPE_CIRCLE;
 
-  // Orbit style (meaningful only for hubs)
+  // Orbit style (hub only)
   color   orbitCol    = color(180);
   boolean orbitDashed = true;
 
-  // Sub-diagram (future promotion/demotion — stored but not yet fully wired)
+  // Image
+  PImage  img           = null;
+  boolean cropToShape   = true;    // true=crop to shape boundary, false=fit diagonal
+  PImage  imgMasked     = null;    // cached masked version
+  int     imgCacheSize  = -1;      // diameter at which cache was built
+  int     imgCacheShape = -1;      // shapeType at which cache was built
+
+  // Sub-diagram stub
   int subType = SLOT_PLAIN;
   int subN    = 3;
 
@@ -27,6 +33,70 @@ class NodeState {
     this.label = label;
     this.r     = r;
     this.ang   = ang;
+  }
+
+  // Invalidate cache (call when r or shapeType or cropToShape changes)
+  void invalidateCache() {
+    imgMasked    = null;
+    imgCacheSize  = -1;
+    imgCacheShape = -1;
+  }
+
+  // Rebuild masked image cache.
+  // Crop mode: image fills inscribed circle (diameter = 2r), masked to shape.
+  // Fit mode:  no cache needed — drawn inline with diagonal scaling.
+  void rebuildMask(int diameter) {
+    if (img == null || !cropToShape) { imgMasked = null; return; }
+    if (imgCacheSize == diameter && imgCacheShape == shapeType
+        && imgMasked != null) return;
+
+    imgCacheSize  = diameter;
+    imgCacheShape = shapeType;
+
+    // Step 1: draw image scaled to inscribed circle of the shape
+    // Circle/Rect: inscribed circle radius = r (fills diameter x diameter)
+    // Diamond:     inscribed circle radius = r/sqrt(2) — circle touching midpoints of sides
+    int imgSize;
+    if (shapeType == SHAPE_DIAMOND) {
+      imgSize = (int)(diameter / sqrt(2.0));
+    } else {
+      imgSize = diameter;
+    }
+    int offset = (diameter - imgSize) / 2;
+
+    PGraphics imgG = createGraphics(diameter, diameter, JAVA2D);
+    imgG.beginDraw();
+    imgG.clear();
+    imgG.image(img, offset, offset, imgSize, imgSize);
+    imgG.endDraw();
+
+    // Step 2: build mask in shape of the node
+    PGraphics mask = createGraphics(diameter, diameter, JAVA2D);
+    mask.beginDraw();
+    mask.background(0);       // black = transparent
+    mask.noStroke();
+    mask.fill(255);            // white = opaque
+    int cx = diameter / 2;
+    int cy = diameter / 2;
+    int r2 = diameter / 2;
+    if (shapeType == SHAPE_CIRCLE) {
+      mask.ellipse(cx, cy, diameter, diameter);
+    } else if (shapeType == SHAPE_RECT) {
+      int corner = (int)(r2 * 0.3);
+      mask.rect(0, 0, diameter, diameter, corner);
+    } else { // DIAMOND
+      mask.beginShape();
+        mask.vertex(cx,    0);
+        mask.vertex(diameter, cy);
+        mask.vertex(cx,    diameter);
+        mask.vertex(0,     cy);
+      mask.endShape(CLOSE);
+    }
+    mask.endDraw();
+
+    // Step 3: apply mask
+    imgG.mask(mask);
+    imgMasked = imgG;
   }
 }
 
@@ -44,6 +114,19 @@ NodeState[] spokeState;
 NodeState[] crossState;
 NodeState[] twoState;
 NodeState[][] slotStates;
+
+// ── Image loading ─────────────────────────────────────────────────────────────
+NodeState pendingImageNode = null;
+
+void imageSelected(File f) {
+  if (f == null || pendingImageNode == null) return;
+  PImage loaded = loadImage(f.getAbsolutePath());
+  if (loaded != null) {
+    pendingImageNode.img = loaded;
+    pendingImageNode.invalidateCache();
+  }
+  pendingImageNode = null;
+}
 
 // ── Hub orbit adjustment ──────────────────────────────────────────────────────
 void adjustHubOrbit(int frameId, int slot, float delta) {
@@ -106,20 +189,16 @@ void initTwoState() {
 
 void initSlotStates() {
   if (slotStates != null && slotStates.length == nOuter) return;
-  slotStates  = new NodeState[nOuter][];
-  slotOrbitR  = new float[nOuter];
-  slotScale   = new float[nOuter];
-
+  slotStates = new NodeState[nOuter][];
+  slotOrbitR = new float[nOuter];
+  slotScale  = new float[nOuter];
   float refOrbit = 80.0;
   float boundR   = 55.0;
-
   for (int i = 0; i < nOuter; i++) {
     int type = (i < slotTypes.length) ? slotTypes[i] : SLOT_PLAIN;
     int sn   = (i < slotN.length)     ? slotN[i]     : 4;
-
     slotOrbitR[i] = refOrbit;
     slotScale[i]  = boundR / refOrbit;
-
     if (type == SLOT_PLAIN) {
       slotStates[i] = null;
     } else {
