@@ -111,12 +111,9 @@ class NodeState {
     if (imgCacheSize==diameter&&imgCacheShape==shapeType&&imgMasked!=null) return;
     imgCacheSize=diameter; imgCacheShape=shapeType;
 
-    int imgSize = (shapeType==SHAPE_DIAMOND) ? (int)(diameter/sqrt(2.0)) : diameter;
-    int offset  = (diameter-imgSize)/2;
-
     PGraphics imgG=createGraphics(diameter,diameter,JAVA2D);
     imgG.beginDraw(); imgG.clear();
-    imgG.image(img, offset, offset, imgSize, imgSize);
+    imgG.image(img, 0, 0, diameter, diameter);
     imgG.endDraw();
 
     PGraphics mask=createGraphics(diameter,diameter,JAVA2D);
