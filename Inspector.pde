@@ -322,7 +322,7 @@ float sbSectionLabel(String l,float x,float y,boolean active){
 // alpha is needed to detect whether no-fill is currently active.
 float sbColorRow(String label,color current,int alpha,boolean hasNoFill,String tag,float x,float y){
   fill(MUTED);noStroke();textSize(11);textAlign(LEFT,TOP);text(label,x+SB_PAD,y);
-  color[]cols={color(255),color(200,70,70),color(160),color(70,170,100)};  // white, red, grey, green
+  color[]cols={color(245),color(200,70,70),color(160),color(70,170,100)};  // default, red, grey, green
   String[]suffixes={"_W","_0","_1","_2"};
   float sw=20,gap=5;
   int total=hasNoFill?5:4;
@@ -460,7 +460,7 @@ void sbHandleClick(String tag,float mx,float my){
   else if(tag.startsWith("NODE_COLOR_")) {
     char c=tag.charAt(tag.length()-1);
     if     (c=='X')               { ns.alpha=0; }                           // no-fill
-    else if(c=='W')               { ns.fillCol=cols[0]; ns.alpha=255; }     // white
+    else if(c=='W')               { ns.fillCol=cols[0]; ns.alpha=255; }     // default
     else                          { ns.fillCol=cols[int(c)-48+1]; ns.alpha=255; } // red/grey/green (+1 offset for white)
   }
   else if(tag.startsWith("ORBIT_COLOR_")) {
