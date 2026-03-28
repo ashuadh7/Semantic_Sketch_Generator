@@ -93,7 +93,9 @@ class NodeState {
   void scaleProportional(float factor) {
     if (!isHub()) return;
     subOrbitR *= factor;
-    // subScale stays fixed — orbit and children scale together proportionally
+    // children[0] holds the gap radius used for arrows — scale it proportionally
+    children[0].r = max(6, children[0].r * factor);
+    children[0].invalidateCache();
     for (int i = 1; i < children.length; i++) {
       children[i].r = max(6, children[i].r * factor);
       children[i].invalidateCache();

@@ -74,7 +74,7 @@ void drawSubDiagram(NodeState ns, float cx, float cy, int ownerHitIdx) {
         float off=7, aHead=7;
         float dx=sin(child.ang), dy=-cos(child.ang);
         float px=-dy*off, py=dx*off;
-        float gapC=ns.children[0].r+4, gapS=child.r+4;
+        float gapC=ns.r/sc+4, gapS=child.r+4;
         stroke(FG); strokeWeight(1.3);
         arrow(dx*gapC+px,dy*gapC+py,sx-dx*gapS+px,sy-dy*gapS+py,aHead);
         arrow(sx-dx*gapS-px,sy-dy*gapS-py,dx*gapC-px,dy*gapC-py,aHead);

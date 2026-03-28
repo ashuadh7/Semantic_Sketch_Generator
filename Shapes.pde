@@ -77,10 +77,10 @@ void keyPressed(){
 
     // { } proportional scale of sub-diagram (Shift+[/])
     case '{':
-      if(ns.isHub()) ns.scaleProportional(0.92);
+      if(ns.isHub()){ ns.r=max(8,ns.r*0.92); ns.invalidateCache(); ns.scaleProportional(0.92); }
       break;
     case '}':
-      if(ns.isHub()) ns.scaleProportional(1.08);
+      if(ns.isHub()){ ns.r=ns.r*1.08; ns.invalidateCache(); ns.scaleProportional(1.08); }
       break;
 
     // , . adjust orbit (hub only)
