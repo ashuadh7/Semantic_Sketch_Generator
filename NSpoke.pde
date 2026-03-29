@@ -118,7 +118,6 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, f
       noFill(); stroke(child.orbitCol); strokeWeight(1);
       if (child.orbitDashed) dashedCircle(childSX[i], childSY[i], childOrbitR, 7, 5);
       else                   ellipse(childSX[i], childSY[i], childOrbitR*2, childOrbitR*2);
-      // Accumulate absolute angle so deeper levels also face outward from root
       drawSubDiagramContents(child, childSX[i], childSY[i], childHitIdx[i], childAngle[i]);
     }
   }

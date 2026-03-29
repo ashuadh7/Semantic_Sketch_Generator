@@ -8,12 +8,21 @@ int nSpoke=4,nCross=5,nInner=0,nOuter=4;
 int   appMode=0,activeFrame=2,numButtons=2;
 float btnW,btnH=64,btnGap=12,btnTop=20,canvasY;
 
+// ── View mode state ───────────────────────────────────────────────────────────
+float viewZoom=1.0, viewPanX=0, viewPanY=0;
+boolean viewIsDragging=false;
+float   viewDragStartX, viewDragStartY;
+
+// ── Edit mode pan/zoom ────────────────────────────────────────────────────────
+float editZoom=1.0, editPanX=0, editPanY=0;
+boolean editIsPanning=false;
+
 void setup(){
   size(1060,880);
   // Ensure data folder exists
   java.io.File dataDir = new java.io.File(sketchPath("data"));
   if (!dataDir.exists()) dataDir.mkdir();
-  btnW=((width-SB_W)-(numButtons+1)*btnGap)/numButtons;
+  btnW=120;
   canvasY=btnTop+btnH+btnGap+16;
   textFont(createFont("Helvetica",13));
   smooth(); initAllStates();
@@ -25,7 +34,14 @@ void draw(){
     inspectorCX=(width-SB_W)/2.0;
     inspectorCY=canvasY+(height-20-canvasY)/2.0;
     resetHitTargets(512);
-    pushMatrix(); translate(inspectorCX,inspectorCY); drawFramework(activeFrame); popMatrix();
+    clip(0,(int)canvasY,width-SB_W,(int)(height-20-canvasY));
+    pushMatrix(); translate(inspectorCX+editPanX,inspectorCY+editPanY); scale(editZoom); drawFramework(activeFrame); popMatrix();
+    noClip();
+    for(int i=0;i<hitCount;i++){
+      float wx=hitTargets[i][0]-inspectorCX,wy=hitTargets[i][1]-inspectorCY;
+      hitTargets[i][0]=inspectorCX+editPanX+wx*editZoom;
+      hitTargets[i][1]=inspectorCY+editPanY+wy*editZoom;
+      hitTargets[i][2]*=editZoom;}
     // After a swap, reselect the moved node by matching its NodeState reference
     if (pendingSelectNode != null) {
       for (int i = 0; i < hitCount; i++) {
@@ -39,18 +55,23 @@ void draw(){
     drawHUD();
     sbResetZones(); drawSidebar();
   } else {
-    float ch=height-canvasY-20;
+    float ch=height-canvasY-48;
     float canvasR=min(width,ch)*0.45;
     float ext=viewExtent(twoState!=null&&twoState.length>0?twoState[0]:null);
     float vs=(ext>0)?canvasR/ext:1.0;
+    float ts=vs*viewZoom;
     inspectorCX=width/2.0;
     inspectorCY=canvasY+ch/2.0;
     resetHitTargets(512);
-    pushMatrix(); translate(inspectorCX,inspectorCY); scale(vs); drawFramework(activeFrame); popMatrix();
-    // Correct hit targets from diagram-space to screen-space with viewScale applied
+    clip(0,(int)canvasY,width,(int)(vHudY()-4-canvasY));
+    pushMatrix(); translate(inspectorCX+viewPanX,inspectorCY+viewPanY); scale(ts); drawFramework(activeFrame); popMatrix();
+    noClip();
     for(int i=0;i<hitCount;i++){
       float wx=hitTargets[i][0]-inspectorCX, wy=hitTargets[i][1]-inspectorCY;
-      hitTargets[i][0]=inspectorCX+wx*vs; hitTargets[i][1]=inspectorCY+wy*vs; hitTargets[i][2]*=vs;}
+      hitTargets[i][0]=inspectorCX+viewPanX+wx*ts;
+      hitTargets[i][1]=inspectorCY+viewPanY+wy*ts;
+      hitTargets[i][2]*=ts;}
+    drawViewHUD();
   }
   drawToast();
 }
@@ -66,28 +87,60 @@ void drawFramework(int id){
     case 3:drawPlaceholder();break;}}
 
 void mousePressed(){
-  if(mouseX>=sbX()){if(appMode==0)sbMousePressed(mouseX,mouseY);return;}
+  if(appMode==0&&mouseX>=sbX()){sbMousePressed(mouseX,mouseY);return;}
   for(int i=0;i<numButtons;i++){
-    float x=btnGap+i*(btnW+btnGap),y=btnTop;
+    float x=btnX(i),y=btnTop;
     if(mouseX>x&&mouseX<x+btnW&&mouseY>y&&mouseY<y+btnH){
-      if(i==0&&appMode!=0)resetViewCollapsed();
-      if(i==1&&appMode!=1)collapseAllForView();
+      if(i==0&&appMode!=0){resetViewCollapsed();editZoom=1;editPanX=0;editPanY=0;}
+      if(i==1&&appMode!=1){collapseAllForView();viewZoom=1;viewPanX=0;viewPanY=0;}
       appMode=i;return;}}
   if(appMode==0){
     if(editingLabel)commitLabelEdit(selectedNodeState());
     if(editingSubLabel)commitSubLabelEdit(selectedNodeState());
     if(editingFilename)commitFilenameEdit();
     selectedNode=pickNode(mouseX,mouseY);
+    editIsPanning=false;
   } else {
+    viewIsDragging=false;
+    if(vHudButtonHit(0,mouseX,mouseY)){viewZoom=1;viewPanX=0;viewPanY=0;return;}
+    if(vHudButtonHit(1,mouseX,mouseY)){collapseAllForView();return;}
+    if(vHudButtonHit(2,mouseX,mouseY)){resetViewCollapsed();return;}
+    if(vHudFnHit(mouseX,mouseY)){editingFilename=true;return;}
+    if(vHudSaveHit(mouseX,mouseY)){commitFilenameEdit();saveCanvasImage(filenameBuffer);return;}
+    viewDragStartX=mouseX; viewDragStartY=mouseY;}}
+
+void mouseDragged(){
+  if(appMode==0){
+    if(mouseX>=sbX()){sbMouseDragged(mouseX,mouseY); return;}
+    // Middle mouse or space+drag to pan in edit mode
+    if(mouseButton==CENTER||editIsPanning){
+      editIsPanning=true;
+      editPanX+=mouseX-pmouseX; editPanY+=mouseY-pmouseY;}
+    return;}
+  viewIsDragging=true;
+  viewPanX+=mouseX-pmouseX; viewPanY+=mouseY-pmouseY;}
+
+void mouseReleased(){
+  if(appMode==0){editIsPanning=false; sbMouseReleased(); return;}
+  if(!viewIsDragging){
     int hit=pickNode(mouseX,mouseY);
     if(hit>=0){NodeState ns=resolveHit((int)hitTargets[hit][3]);
-      if(ns!=null&&ns.isHub())ns.viewCollapsed=!ns.viewCollapsed;}}}
+      if(ns!=null&&ns.isHub())ns.viewCollapsed=!ns.viewCollapsed;}}
+  viewIsDragging=false;}
 
-void mouseDragged(){if(appMode==0&&mouseX>=sbX())sbMouseDragged(mouseX,mouseY);}
-void mouseReleased(){if(appMode==0)sbMouseReleased();}
+void mouseWheel(MouseEvent e){
+  float factor=e.getCount()<0?1.1:0.9;
+  if(appMode==0){
+    float mx=mouseX-inspectorCX-editPanX, my=mouseY-inspectorCY-editPanY;
+    editPanX-=mx*(factor-1); editPanY-=my*(factor-1);
+    editZoom=constrain(editZoom*factor,0.1,10);
+  } else {
+    float mx=mouseX-inspectorCX-viewPanX, my=mouseY-inspectorCY-viewPanY;
+    viewPanX-=mx*(factor-1); viewPanY-=my*(factor-1);
+    viewZoom=constrain(viewZoom*factor,0.1,10);}}
 
 void keyPressed(){
-  if(appMode!=0)return;
+  if(appMode!=0){if(editingFilename)sbKeyPressed();return;}
   if(sbKeyPressed())return;
   if(key==TAB){selectedNode=(hitCount>0)?(selectedNode+1)%hitCount:-1;return;}
   if(key==ESC){key=0;selectedNode=-1;return;}
@@ -125,10 +178,12 @@ void keyPressed(){
   }
 }
 
+float btnX(int i){ return (width-(numButtons*btnW+(numButtons-1)*btnGap))/2.0+i*(btnW+btnGap); }
+
 void drawButtons(){
   String[]modeLabels={"Edit","View"};
   for(int i=0;i<numButtons;i++){
-    float x=btnGap+i*(btnW+btnGap),y=btnTop;boolean active=(appMode==i);
+    float x=btnX(i),y=btnTop;boolean active=(appMode==i);
     fill(active?color(230,242,255):color(245));stroke(active?color(80,140,210):BORDER);strokeWeight(active?1.8:0.8);
     rect(x,y,btnW,btnH,10);
     fill(active?color(30,80,160):FG);noStroke();textSize(13);textAlign(CENTER,CENTER);text(modeLabels[i],x+btnW/2,y+btnH/2);}}
@@ -156,6 +211,58 @@ float viewExtent(NodeState ns){
 // Blue tint overlay drawn on top of styledNode for any hub in View mode
 void drawViewHubTint(float cx,float cy,NodeState ns){
   fill(color(80,140,210,50));noStroke();drawShape(cx,cy,ns);}
+
+// ── View HUD ─────────────────────────────────────────────────────────────────
+// Left group: Reset zoom, Collapse all, Expand all
+// Right group: [filename field] [Save image]
+final String[] VHD_LABELS = {"Reset zoom","Collapse all","Expand all"};
+final float VHD_BTN_W=100, VHD_BTN_H=28, VHD_BTN_GAP=10;
+final float VHD_FN_W=180, VHD_SAVE_W=100;
+float vHudY(){ return height-44; }
+
+// Left 3 buttons centred in left half; save group right-aligned
+float vHudBtnX(int i){
+  float leftGroupW = VHD_BTN_W*3+VHD_BTN_GAP*2;
+  float leftStart  = (width/2.0-10-leftGroupW)/2.0;
+  return leftStart+i*(VHD_BTN_W+VHD_BTN_GAP);}
+float vHudFnX(){ return width-16-VHD_SAVE_W-8-VHD_FN_W; }
+float vHudSaveX(){ return width-16-VHD_SAVE_W; }
+
+void drawViewHUD(){
+  fill(248);noStroke();rect(0,vHudY()-4,width,height-vHudY()+4);
+  stroke(SB_LINE);strokeWeight(1);line(0,vHudY()-4,width,vHudY()-4);
+
+  // Left group
+  for(int i=0;i<3;i++){
+    boolean hov=vHudButtonHit(i,mouseX,mouseY);
+    fill(hov?color(220,235,255):color(238));stroke(hov?color(80,140,210):BORDER);strokeWeight(hov?1.8:1);
+    rect(vHudBtnX(i),vHudY(),VHD_BTN_W,VHD_BTN_H,5);
+    fill(hov?color(30,80,160):FG);noStroke();textSize(11);textAlign(CENTER,CENTER);
+    text(VHD_LABELS[i],vHudBtnX(i)+VHD_BTN_W/2,vHudY()+VHD_BTN_H/2);}
+
+  // Filename field (right side)
+  float fy=vHudY(), fx=vHudFnX();
+  boolean fe=editingFilename;
+  fill(fe?color(230,240,255):color(238));stroke(fe?color(80,140,210):color(200));strokeWeight(fe?1.8:1);
+  rect(fx,fy,VHD_FN_W,VHD_BTN_H,4);
+  String display=filenameBuffer.length()>0?filenameBuffer:"auto timestamp";
+  fill(filenameBuffer.length()==0&&!fe?MUTED:FG);noStroke();textSize(11);textAlign(LEFT,CENTER);
+  text((fe?filenameBuffer:display)+(fe&&frameCount%60<30?"|":""),fx+6,fy+VHD_BTN_H/2);
+
+  // Save image button
+  boolean shov=vHudSaveHit(mouseX,mouseY);
+  fill(shov?color(220,235,255):color(238));stroke(shov?color(80,140,210):BORDER);strokeWeight(shov?1.8:1);
+  rect(vHudSaveX(),fy,VHD_SAVE_W,VHD_BTN_H,5);
+  fill(shov?color(30,80,160):FG);noStroke();textSize(11);textAlign(CENTER,CENTER);
+  text("Save image",vHudSaveX()+VHD_SAVE_W/2,fy+VHD_BTN_H/2);}
+
+boolean vHudButtonHit(int i,float mx,float my){
+  float x=vHudBtnX(i),y=vHudY();
+  return mx>=x&&mx<=x+VHD_BTN_W&&my>=y&&my<=y+VHD_BTN_H;}
+boolean vHudFnHit(float mx,float my){
+  return mx>=vHudFnX()&&mx<=vHudFnX()+VHD_FN_W&&my>=vHudY()&&my<=vHudY()+VHD_BTN_H;}
+boolean vHudSaveHit(float mx,float my){
+  return mx>=vHudSaveX()&&mx<=vHudSaveX()+VHD_SAVE_W&&my>=vHudY()&&my<=vHudY()+VHD_BTN_H;}
 
 void drawEmptyState(){fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENTER);
   text("Nothing to display",(width-SB_W)/2.0,canvasY+(height-canvasY)/2.0);}
