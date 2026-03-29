@@ -156,15 +156,19 @@ void drawSidebar() {
   NodeState ns = selectedNodeState();
   if (ns==null) {
     // Show save/load even with no selection
-    float y = height - 158;
+    float y = height - 174;
     sbDivider(y); y += 12;
     y = sbSectionLabel("Session", x, y);
     y = sbFilenameField(x, y);
     float bw=(SB_W-SB_PAD*2-4)/2.0;
-    sbButton("Save image", x+SB_PAD,       y, bw, 28, "SAVE_IMAGE", false);
-    sbButton("Save state", x+SB_PAD+bw+4,  y, bw, 28, "SAVE_STATE", false);
-    y += 36;
-    sbButton("Load state", x+SB_PAD, y, SB_W-SB_PAD*2, 28, "LOAD_STATE", false);
+    sbButton("Export PNG",   x+SB_PAD,      y, bw, 28, "SAVE_IMAGE", false);
+    sbButton("Save session", x+SB_PAD+bw+4, y, bw, 28, "SAVE_STATE", false);
+    y += 32;
+    fill(MUTED); noStroke(); textSize(10); textAlign(LEFT, TOP);
+    text("→ exports/", x+SB_PAD, y);
+    text("→ states/", x+SB_PAD+bw+4, y);
+    y += 16;
+    sbButton("Load session", x+SB_PAD, y, SB_W-SB_PAD*2, 28, "LOAD_STATE", false);
 
     fill(MUTED); noStroke(); textSize(12); textAlign(CENTER,CENTER);
     text("Select a node\nto edit properties", x+SB_W/2.0, (height-200)/2.0);
@@ -309,10 +313,14 @@ void drawSidebar() {
   y=sbSectionLabel("Session",x,y);
   y=sbFilenameField(x,y);
   float bw2=(SB_W-SB_PAD*2-4)/2.0;
-  sbButton("Save image",x+SB_PAD,      y,bw2,26,"SAVE_IMAGE",false);
-  sbButton("Save state",x+SB_PAD+bw2+4,y,bw2,26,"SAVE_STATE",false);
-  y+=34;
-  sbButton("Load state",x+SB_PAD,y,SB_W-SB_PAD*2,26,"LOAD_STATE",false);
+  sbButton("Export PNG",   x+SB_PAD,      y, bw2, 26, "SAVE_IMAGE", false);
+  sbButton("Save session", x+SB_PAD+bw2+4,y, bw2, 26, "SAVE_STATE", false);
+  y+=30;
+  fill(MUTED); noStroke(); textSize(10); textAlign(LEFT, TOP);
+  text("→ exports/", x+SB_PAD, y);
+  text("→ states/", x+SB_PAD+bw2+4, y);
+  y+=16;
+  sbButton("Load session",x+SB_PAD,y,SB_W-SB_PAD*2,26,"LOAD_STATE",false);
 }
 
 // ── Filename field helper ─────────────────────────────────────────────────────
@@ -618,9 +626,6 @@ void recomputeTopLevelAngles(NodeState[] states) {
       : radians(i * (360.0/n));
   }
 }
-
-void setActiveStates(NodeState[]next){
-  switch(activeFrame){case 0:spokeState=next;break;case 1:crossState=next;break;case 2:twoState=next;break;}}
 
 boolean sbDragging=false; String sbDragTag=null;
 void sbMousePressed(float mx,float my){String tag=sbPickZone(mx,my);sbDragTag=tag;sbDragging=true;sbHandleClick(tag,mx,my);}

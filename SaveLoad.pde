@@ -46,13 +46,13 @@ void saveCanvasImage(String customName) {
 
   String filename;
   if (customName != null && customName.trim().length() > 0) {
-    filename = "data/" + customName.trim() + ".png";
+    filename = "data/exports/" + customName.trim() + ".png";
   } else {
-    filename = "data/diagram_" + year() + nf(month(),2) + nf(day(),2)
+    filename = "data/exports/diagram_" + year() + nf(month(),2) + nf(day(),2)
              + "_" + nf(hour(),2) + nf(minute(),2) + nf(second(),2) + ".png";
   }
   pg.save(filename);
-  showToast("Image saved: " + filename);
+  showToast("Exported: " + filename);
 }
 
 // Draws the framework into an offscreen PGraphics — mirrors drawFramework
@@ -115,14 +115,14 @@ void saveState(String customName) {
 
   String filename;
   if (customName != null && customName.trim().length() > 0) {
-    filename = "data/" + customName.trim() + ".json";
+    filename = "data/states/" + customName.trim() + ".json";
   } else {
-    filename = "data/state_" + year() + nf(month(),2) + nf(day(),2)
+    filename = "data/states/state_" + year() + nf(month(),2) + nf(day(),2)
              + "_" + nf(hour(),2) + nf(minute(),2) + nf(second(),2) + ".json";
   }
   saveJSONObject(root, filename);
-  println("Saved state: " + filename);
-  showToast("State saved: " + filename);
+  println("Saved session: " + filename);
+  showToast("Session saved: " + filename);
 }
 
 // ── Load state ────────────────────────────────────────────────────────────────
