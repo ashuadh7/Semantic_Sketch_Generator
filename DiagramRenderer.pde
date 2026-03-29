@@ -1,4 +1,7 @@
-// ── NSpoke / NCross unified renderer ─────────────────────────────────────────
+// ── DiagramRenderer ───────────────────────────────────────────────────────────
+// Renders Spoke and Cross flat diagrams, and provides the shared recursive
+// sub-diagram drawing used by both flat frameworks and NestedDiagram.
+//
 // Hit target stateIdx encoding:
 //   0..N           = direct index into active framework state array
 //   >= NESTED_BASE = NESTED_BASE + ownerHitIdx*MAX_CHILDREN + childLocalIdx
@@ -8,12 +11,12 @@ final int NESTED_BASE  = 100000;
 final int MAX_CHILDREN = 64;
 
 void drawNSpoke(int n) {
-  if (spokeState==null||spokeState.length<n+1) return;
+  if (spokeState == null || spokeState.length < n+1) return;
   drawNodesWithState(n, spokeState, spokeOrbitR, SLOT_SPOKE, 0);
 }
 
 void drawNCross(int n) {
-  if (crossState==null||crossState.length<n+1) return;
+  if (crossState == null || crossState.length < n+1) return;
   drawNodesWithState(n, crossState, crossOrbitR, SLOT_CROSS, 0);
 }
 
@@ -33,8 +36,8 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
       float px=-dy*off, py=dx*off;
       float gapC=hub.r+4, gapS=ns.r+4;
       stroke(FG); strokeWeight(1.3);
-      arrow(dx*gapC+px,dy*gapC+py,sx-dx*gapS+px,sy-dy*gapS+py,aHead);
-      arrow(sx-dx*gapS-px,sy-dy*gapS-py,dx*gapC-px,dy*gapC-py,aHead);
+      arrow(dx*gapC+px, dy*gapC+py, sx-dx*gapS+px, sy-dy*gapS+py, aHead);
+      arrow(sx-dx*gapS-px, sy-dy*gapS-py, dx*gapC-px, dy*gapC-py, aHead);
     }
 
     int hitIdx = hitCount;
@@ -48,10 +51,10 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
   styledNode(0, 0, hub);
 }
 
-// Draw a hub node's visual (node circle + orbit ring) then hand off to drawSubDiagramContents.
-// cx, cy are always in screen-centred coordinates (relative to inspectorCX/CY origin).
-// hubAngle is the absolute outward-facing angle of this hub from the root centre,
-// used to rotate the satellite cluster so it faces away from the centre.
+// Draw a hub node's visual (node + orbit ring) then recurse into its satellites.
+// cx, cy are in screen-centred coordinates relative to the inspectorCX/CY origin.
+// hubAngle is the absolute outward-facing angle used to rotate the satellite
+// cluster so it faces away from the root centre.
 void drawSubDiagram(NodeState ns, float cx, float cy, int ownerHitIdx, float hubAngle) {
   styledNode(cx, cy, ns);
   if (appMode==1 && ns.viewCollapsed) { drawViewHubTint(cx, cy, ns); return; }
@@ -72,7 +75,7 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, f
   int[]   childHitIdx = new int[n];
   float[] childSX     = new float[n];
   float[] childSY     = new float[n];
-  float[] childAngle  = new float[n]; // absolute angle per child (for recursion)
+  float[] childAngle  = new float[n];
 
   pushMatrix();
     translate(cx, cy);
@@ -80,22 +83,21 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, f
 
     for (int i = 0; i < n; i++) {
       NodeState child = ns.children[i+1];
-      // Rotate satellite cluster outward: add parent hub angle + user offset
       float angle = child.ang + hubAngle + ns.subAngOffset;
       childAngle[i] = angle;
-      float lx =  ns.subOrbitR * sin(angle);  // local coords (pre-scale)
+      float lx =  ns.subOrbitR * sin(angle);
       float ly = -ns.subOrbitR * cos(angle);
       childSX[i] = cx + lx * sc;
       childSY[i] = cy + ly * sc;
 
       if (ns.subType == SLOT_CROSS) {
         float off=7, aHead=7;
-        float dx=sin(angle), dy=-cos(angle);  // direction matches rotated position
+        float dx=sin(angle), dy=-cos(angle);
         float px=-dy*off, py=dx*off;
         float gapC=ns.r/sc+4, gapS=child.r+4;
         stroke(FG); strokeWeight(1.3);
-        arrow(dx*gapC+px,dy*gapC+py,lx-dx*gapS+px,ly-dy*gapS+py,aHead);
-        arrow(lx-dx*gapS-px,ly-dy*gapS-py,dx*gapC-px,dy*gapC-py,aHead);
+        arrow(dx*gapC+px, dy*gapC+py, lx-dx*gapS+px, ly-dy*gapS+py, aHead);
+        arrow(lx-dx*gapS-px, ly-dy*gapS-py, dx*gapC-px, dy*gapC-py, aHead);
       }
 
       int childStIdx = NESTED_BASE + ownerHitIdx*MAX_CHILDREN + (i+1);

@@ -1,6 +1,8 @@
-// ── Nested Level framework ────────────────────────────────────────────────────
-// Starts as a single hub node. Users add satellites via sidebar.
-// Each node can be promoted to a sub-diagram — infinitely deep.
+// ── NestedDiagram ─────────────────────────────────────────────────────────────
+// Renders Frame 2: the infinitely-deep nested hub diagram.
+// Starts as a single hub node; users add satellites via the sidebar.
+// Each node can be promoted to a sub-diagram — recursion is handled by
+// drawSubDiagram / drawSubDiagramContents in DiagramRenderer.pde.
 // ─────────────────────────────────────────────────────────────────────────────
 
 final int SLOT_BASE      = 1000;
@@ -40,8 +42,8 @@ void drawTwoLevel(int nInner, int nOuter) {
       float px=-dy*off, py=dx*off;
       float gapC=hub.r+4, gapS=child.r*hub.subScale+4;
       stroke(FG); strokeWeight(1.3);
-      arrow(dx*gapC+px,dy*gapC+py,sx-dx*gapS+px,sy-dy*gapS+py,aHead);
-      arrow(sx-dx*gapS-px,sy-dy*gapS-py,dx*gapC-px,dy*gapC-py,aHead);
+      arrow(dx*gapC+px, dy*gapC+py, sx-dx*gapS+px, sy-dy*gapS+py, aHead);
+      arrow(sx-dx*gapS-px, sy-dy*gapS-py, dx*gapC-px, dy*gapC-py, aHead);
     }
 
     int childStIdx  = NESTED_BASE + hubHitIdx * MAX_CHILDREN + (i+1);
