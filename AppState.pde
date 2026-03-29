@@ -51,6 +51,16 @@ void adjustHubOrbit(int frameId, float delta) {
 // ── Initialisation ────────────────────────────────────────────────────────────
 void initAllStates() { initSpokeState(); initCrossState(); initTwoState(); }
 
+// Reset only the active framework to default (forces re-creation by nulling array first).
+void initActiveState() {
+  switch (activeFrame) {
+    case 0: spokeState = null; initSpokeState(); break;
+    case 1: crossState = null; initCrossState(); break;
+    case 2: twoState   = null; initTwoState();   break;
+  }
+  selectedNode = -1;
+}
+
 void initSpokeState() {
   int needed = nSpoke + 1;
   if (spokeState != null && spokeState.length == needed) return;
@@ -85,12 +95,18 @@ void imageSelected(File f) {
   if (f == null || pendingImageNode == null) return;
   PImage loaded = loadImage(f.getAbsolutePath());
   if (loaded != null) {
-    pendingImageNode.img = loaded;
+    pushUndoSnapshot();
+    pendingImageNode.pushNodeSnapshot();
+    pendingImageNode.img   = loaded;
     pendingImageNode.alpha = 0;
     pendingImageNode.invalidateCache();
   }
   pendingImageNode = null;
 }
 
-void stateFileSelected(File f)  { loadStateFromFile(f); }
+void stateFileSelected(File f) {
+  if (f == null) return;
+  pushUndoSnapshot();
+  loadStateFromFile(f);
+}
 void importNodeSelected(File f) { importNodeFromFile(f); }

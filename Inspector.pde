@@ -28,10 +28,27 @@ String  editSubBuffer   = "";
 boolean editingFilename = false;
 String  filenameBuffer  = "";
 
+// Confirmation state for Clear actions (0=none, 1=clear-view pending, 2=clear-all pending).
+int clearConfirm = 0;
+
 void activateLabelEdit(NodeState ns)    { editingSubLabel=false; editingLabel=true;    editBuffer=ns.label; }
-void commitLabelEdit(NodeState ns)      { if(ns!=null&&editBuffer.length()>0) ns.label=editBuffer; editingLabel=false; }
+void commitLabelEdit(NodeState ns) {
+  if (ns != null && editBuffer.length() > 0 && !editBuffer.equals(ns.label)) {
+    pushUndoSnapshot();
+    ns.pushNodeSnapshot();
+    ns.label = editBuffer;
+  }
+  editingLabel = false;
+}
 void activateSubLabelEdit(NodeState ns) { editingLabel=false; editingSubLabel=true; editSubBuffer=ns.subLabel; }
-void commitSubLabelEdit(NodeState ns)   { if(ns!=null) ns.subLabel=editSubBuffer; editingSubLabel=false; }
+void commitSubLabelEdit(NodeState ns) {
+  if (ns != null && !editSubBuffer.equals(ns.subLabel)) {
+    pushUndoSnapshot();
+    ns.pushNodeSnapshot();
+    ns.subLabel = editSubBuffer;
+  }
+  editingSubLabel = false;
+}
 
 void activateFilenameEdit() { editingFilename=true; }
 void commitFilenameEdit()   { editingFilename=false; }
@@ -79,6 +96,7 @@ NodeState selectedNodeState() {
   selectedLocalIdx = si;
   return states[si];
 }
+
 
 NodeState resolveHit(int si) {
   if (si >= NESTED_BASE) {
@@ -164,9 +182,24 @@ void drawSidebar() {
 
   NodeState ns = selectedNodeState();
   if (ns==null) {
-    // Show save/load even with no selection
-    float y = height - 174;
-    sbDivider(y); y += 12;
+    float y = 16;
+    fill(MUTED); noStroke(); textSize(12); textAlign(CENTER,CENTER);
+    text("Select a node\nto edit properties", x+SB_W/2.0, y+24);
+    y += 64;
+
+    // Clear section
+    sbDivider(y); y+=12;
+    y = sbSectionLabel("Clear", x, y);
+    String clLabel = (clearConfirm==1) ? "Confirm clear?" : "Clear diagram";
+    color clStroke = (clearConfirm==1) ? color(200,80,80) : color(190);
+    fill(clearConfirm==1?color(255,235,235):color(235)); stroke(clStroke); strokeWeight(1);
+    rect(x+SB_PAD,y,SB_W-SB_PAD*2,28,4);
+    fill(clearConfirm==1?color(160,30,30):FG); noStroke(); textSize(11); textAlign(CENTER,CENTER);
+    text(clLabel,x+SB_PAD+(SB_W-SB_PAD*2)/2,y+14); sbRegisterClick(x+SB_PAD,y,SB_W-SB_PAD*2,28,"CLEAR_VIEW");
+    y+=36;
+
+    // Session section
+    sbDivider(y); y+=12;
     y = sbSectionLabel("Session", x, y);
     y = sbFilenameField(x, y);
     float bw=(SB_W-SB_PAD*2-4)/2.0;
@@ -178,10 +211,8 @@ void drawSidebar() {
     text("→ states/", x+SB_PAD+bw+4, y);
     y += 16;
     sbButton("Load session", x+SB_PAD, y, SB_W-SB_PAD*2, 28, "LOAD_STATE", false);
-    sidebarContentH = height;  // no-selection layout anchors near bottom — no scroll needed
-
-    fill(MUTED); noStroke(); textSize(12); textAlign(CENTER,CENTER);
-    text("Select a node\nto edit properties", x+SB_W/2.0, (height-200)/2.0);
+    y += 34;
+    sidebarContentH = y;
     popMatrix(); noClip(); return;
   }
 
@@ -218,6 +249,19 @@ void drawSidebar() {
   sbRegisterClick(x+SB_PAD,y,SB_W-SB_PAD*2,20,"SUBLABEL_FIELD");
   y+=28;
   y=sbSizeSlider("Font size", ns.labelSize, "LABEL_SIZE", x, y);
+
+  // Per-node undo/redo (shown when the node has any history)
+  if (!ns.nodeUndoStack.isEmpty() || !ns.nodeRedoStack.isEmpty()) {
+    float bw3=(SB_W-SB_PAD*2-8)/3.0;
+    sbButton("Undo", x+SB_PAD,           y, bw3, 22, "NODE_UNDO",  ns.nodeUndoStack.isEmpty());
+    int undos=ns.nodeUndoStack.size(), redos=ns.nodeRedoStack.size();
+    fill(MUTED); noStroke(); textSize(10); textAlign(CENTER,CENTER);
+    text(undos+"/"+( undos+redos), x+SB_PAD+bw3+4+bw3/2, y+11);
+    sbButton("Redo", x+SB_PAD+(bw3+4)*2, y, bw3, 22, "NODE_REDO",  ns.nodeRedoStack.isEmpty());
+    y+=28;
+    sbButton("Reset node", x+SB_PAD, y, SB_W-SB_PAD*2, 20, "NODE_RESET", ns.nodeUndoStack.isEmpty());
+    y+=26;
+  }
   sbDivider(y); y+=12;
 
   // Node appearance
@@ -311,6 +355,10 @@ void drawSidebar() {
       sbButton("> Spoke", x+SB_PAD,        y,bw22,22,"SWITCH_CROSS",ns.subType==SLOT_CROSS);
       sbButton("> Radial",x+SB_PAD+bw22+4,y,bw22,22,"SWITCH_SPOKE",ns.subType==SLOT_SPOKE);
       y+=30;
+      if (ns.numSatellites() >= 2) {
+        sbButton("Equalize sizes", x+SB_PAD, y, SB_W-SB_PAD*2, 22, "EQUALIZE_SIZES", false);
+        y+=28;
+      }
     }
     if (isSatellite) {
       sbButton("Delete this node",x+SB_PAD,y,SB_W-SB_PAD*2,24,"DELETE_NODE",false);
@@ -522,7 +570,7 @@ void sbButton(String label,float x,float y,float w,float h,String tag,boolean di
   text(label,x+w/2,y+h/2);if(!disabled)sbRegisterClick(x,y,w,h,tag);}
 
 // ── Click zones ───────────────────────────────────────────────────────────────
-final int MAX_SB_ZONES=120;
+final int MAX_SB_ZONES=160;
 float[][]sbZones=new float[MAX_SB_ZONES][4];
 String[]sbZoneTags=new String[MAX_SB_ZONES];
 int sbZoneCount=0;
@@ -544,20 +592,62 @@ void sbHandleClick(String tag,float mx,float my){
   // cols matches sbColorRow order: white, red, grey, green (indices W,0,1,2)
   color[]cols={color(255),color(200,70,70),color(160),color(70,170,100)};
 
-  // Session — no node needed
-  if(tag.equals("FILENAME_FIELD")){activateFilenameEdit();return;}
-  if(tag.equals("SAVE_IMAGE")){commitFilenameEdit();saveCanvasImage(filenameBuffer);return;}
-  if(tag.equals("SAVE_STATE")){commitFilenameEdit();saveState(filenameBuffer);return;}
-  if(tag.equals("LOAD_STATE")){selectInput("Load state file","stateFileSelected");return;}
+  // ── Clear action (no node needed) ─────────────────────────────────────────
+  if(tag.equals("CLEAR_VIEW")){
+    if(clearConfirm==1){
+      pushUndoSnapshot(); initActiveState(); clearConfirm=0;
+      showToast("Diagram cleared. Ctrl+Z to undo.");
+    } else { clearConfirm=1; showToast("Click again to confirm."); }
+    return;
+  }
+
+  // ── Equalize satellite sizes (selected hub only) ──────────────────────────
+  if(tag.equals("EQUALIZE_SIZES")){
+    clearConfirm=0;
+    NodeState hub = selectedNodeState();
+    if(hub != null && hub.isHub() && hub.numSatellites() >= 2){
+      pushUndoSnapshot();
+      float sum=0;
+      int n=hub.numSatellites();
+      for(int i=1;i<=n;i++) sum += hub.children[i].r;
+      float avg = sum / n;
+      for(int i=1;i<=n;i++){ hub.children[i].r = avg; hub.children[i].invalidateCache(); }
+      showToast("Satellite sizes equalized. Ctrl+Z to undo.");
+    }
+    return;
+  }
+
+  // ── Session — no node needed ───────────────────────────────────────────────
+  if(tag.equals("FILENAME_FIELD")){clearConfirm=0; activateFilenameEdit(); return;}
+  if(tag.equals("SAVE_IMAGE")){clearConfirm=0; commitFilenameEdit(); saveCanvasImage(filenameBuffer); return;}
+  if(tag.equals("SAVE_STATE")){clearConfirm=0; commitFilenameEdit(); saveState(filenameBuffer); return;}
+  if(tag.equals("LOAD_STATE")){clearConfirm=0; selectInput("Load state file","stateFileSelected"); return;}
+
+  // Any non-clear action resets the confirm state.
+  clearConfirm=0;
 
   if(ns==null)return;
-  if(tag.equals("LABEL_FIELD"))          activateLabelEdit(ns);
-  else if(tag.equals("SUBLABEL_FIELD"))  activateSubLabelEdit(ns);
-  else if(tag.startsWith("NODE_COLOR_")) {
+
+  // ── Per-node undo/redo ─────────────────────────────────────────────────────
+  if(tag.equals("NODE_UNDO"))  { ns.undoNode(); return; }
+  if(tag.equals("NODE_REDO"))  { ns.redoNode(); return; }
+  if(tag.equals("NODE_RESET")) { ns.resetNode(); return; }
+
+  // ── Property-only changes: push both global and per-node snapshots ─────────
+  if(tag.startsWith("NODE_COLOR_")||tag.startsWith("ORBIT_COLOR_")||
+     tag.startsWith("SHAPE_")||tag.startsWith("ORBIT_TYPE_")||
+     tag.equals("IMG_REMOVE")||tag.equals("IMG_CROP")){
+    pushUndoSnapshot(); ns.pushNodeSnapshot();
+  }
+
+  if(tag.equals("LABEL_FIELD"))          { activateLabelEdit(ns); return; }
+  if(tag.equals("SUBLABEL_FIELD"))       { activateSubLabelEdit(ns); return; }
+
+  if(tag.startsWith("NODE_COLOR_")) {
     char c=tag.charAt(tag.length()-1);
-    if     (c=='X')               { ns.alpha=0; }                           // no-fill
-    else if(c=='W')               { ns.fillCol=cols[0]; ns.alpha=255; }     // default
-    else                          { ns.fillCol=cols[int(c)-48+1]; ns.alpha=255; } // red/grey/green (+1 offset for white)
+    if     (c=='X')               { ns.alpha=0; }
+    else if(c=='W')               { ns.fillCol=cols[0]; ns.alpha=255; }
+    else                          { ns.fillCol=cols[int(c)-48+1]; ns.alpha=255; }
   }
   else if(tag.startsWith("ORBIT_COLOR_")) {
     char c=tag.charAt(tag.length()-1);
@@ -565,26 +655,28 @@ void sbHandleClick(String tag,float mx,float my){
     else        ns.orbitCol=cols[int(c)-48+1];
   }
   else if(tag.startsWith("SHAPE_"))      { ns.shapeType=int(tag.charAt(tag.length()-1))-48; ns.invalidateCache(); }
-  else if(tag.equals("LABEL_ANGLE")) { float dx=mx-labelSliderCX,dy=my-labelSliderCY; if(dx*dx+dy*dy>9) ns.labelAng=atan2(dx,-dy); }
+  else if(tag.equals("LABEL_ANGLE"))     { float dx=mx-labelSliderCX,dy=my-labelSliderCY; if(dx*dx+dy*dy>9){ pushUndoSnapshot(); ns.pushNodeSnapshot(); ns.labelAng=atan2(dx,-dy); } }
   else if(tag.startsWith("ORBIT_TYPE_")) ns.orbitDashed=(int(tag.charAt(tag.length()-1))-48==0);
-  else if(tag.equals("NODE_ALPHA"))      { float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.alpha=(int)constrain(map(mx,tx,tx+tw,0,255),0,255); }
-  else if(tag.equals("LABEL_SIZE"))      { float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.labelSize=(int)constrain(map(mx,tx,tx+tw,8,28),8,28); }
-  else if(tag.equals("IMG_ADD"))         { pendingImageNode=ns; selectInput("Select image","imageSelected"); }
+  // NODE_ALPHA and LABEL_SIZE snapshots are pushed on drag-start (mousePressed → sbHandleClick).
+  else if(tag.equals("NODE_ALPHA"))      { pushUndoSnapshot(); ns.pushNodeSnapshot(); float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.alpha=(int)constrain(map(mx,tx,tx+tw,0,255),0,255); }
+  else if(tag.equals("LABEL_SIZE"))      { pushUndoSnapshot(); ns.pushNodeSnapshot(); float tx=sbX()+SB_PAD,tw=SB_W-SB_PAD*2; ns.labelSize=(int)constrain(map(mx,tx,tx+tw,8,28),8,28); }
   else if(tag.equals("IMG_REMOVE"))      { ns.img=null; ns.invalidateCache(); }
   else if(tag.equals("IMG_CROP"))        { ns.cropToShape=!ns.cropToShape; ns.invalidateCache(); }
+  else if(tag.equals("IMG_ADD"))         { pendingImageNode=ns; selectInput("Select image","imageSelected"); }
   else if(tag.equals("IMPORT_NODE"))     { selectInput("Select state file to import","importNodeSelected"); }
-  else if(tag.equals("PROMOTE_CROSS"))   ns.promote(SLOT_CROSS,3);
-  else if(tag.equals("PROMOTE_SPOKE"))   ns.promote(SLOT_SPOKE,3);
-  else if(tag.equals("DEMOTE"))          ns.demote();
-  else if(tag.equals("SAT_ADD"))         ns.addSatellite();
-  else if(tag.equals("SAT_REMOVE"))      ns.removeSatellite(ns.numSatellites());
-  else if(tag.equals("SWITCH_CROSS"))    ns.subType=SLOT_CROSS;
-  else if(tag.equals("SWITCH_SPOKE"))    ns.subType=SLOT_SPOKE;
-  else if(tag.equals("DELETE_NODE"))     deleteSatellite();
-  else if(tag.equals("SWAP_PREV"))       swapSatellite(-1);
-  else if(tag.equals("SWAP_NEXT"))       swapSatellite(+1);
-  else if(tag.equals("SUB_ROT_CCW"))     ns.subAngOffset -= PI/12;
-  else if(tag.equals("SUB_ROT_CW"))      ns.subAngOffset += PI/12;
+  // ── Structural changes: push global snapshot only ──────────────────────────
+  else if(tag.equals("PROMOTE_CROSS"))   { pushUndoSnapshot(); ns.promote(SLOT_CROSS,3); }
+  else if(tag.equals("PROMOTE_SPOKE"))   { pushUndoSnapshot(); ns.promote(SLOT_SPOKE,3); }
+  else if(tag.equals("DEMOTE"))          { pushUndoSnapshot(); ns.demote(); }
+  else if(tag.equals("SAT_ADD"))         { pushUndoSnapshot(); ns.addSatellite(); }
+  else if(tag.equals("SAT_REMOVE"))      { pushUndoSnapshot(); ns.removeSatellite(ns.numSatellites()); }
+  else if(tag.equals("SWITCH_CROSS"))    { pushUndoSnapshot(); ns.subType=SLOT_CROSS; }
+  else if(tag.equals("SWITCH_SPOKE"))    { pushUndoSnapshot(); ns.subType=SLOT_SPOKE; }
+  else if(tag.equals("DELETE_NODE"))     { pushUndoSnapshot(); deleteSatellite(); }
+  else if(tag.equals("SWAP_PREV"))       { pushUndoSnapshot(); swapSatellite(-1); }
+  else if(tag.equals("SWAP_NEXT"))       { pushUndoSnapshot(); swapSatellite(+1); }
+  else if(tag.equals("SUB_ROT_CCW"))     { pushUndoSnapshot(); ns.pushNodeSnapshot(); ns.subAngOffset -= PI/12; }
+  else if(tag.equals("SUB_ROT_CW"))      { pushUndoSnapshot(); ns.pushNodeSnapshot(); ns.subAngOffset += PI/12; }
 }
 
 void deleteSatellite(){
