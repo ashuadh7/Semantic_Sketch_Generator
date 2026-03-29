@@ -22,19 +22,17 @@ void styledNode(float x, float y, NodeState ns) {
   if (hasImg) {
     boolean hasSub = !ns.subLabel.isEmpty();
     int subSize = max(9, ns.labelSize-2);
-    // TODO(#38): at diagonal angles the text block can still clip the node boundary;
-    // dist only accounts for the radial direction, not the full text-block footprint.
-    // Fix: project the label bounding box onto the outward normal and pad accordingly.
-    float dist = ns.r + ns.labelSize*0.5 + 4;
+    float totalH = hasSub ? ns.labelSize + subSize + 3 : ns.labelSize;
+    float dist = ns.r + totalH/2.0 + 4;
     float lx = x + dist*sin(ns.labelAng), ly = y - dist*cos(ns.labelAng);
     float nx = sin(ns.labelAng), ny = -cos(ns.labelAng);
     int ha = (abs(nx) >= abs(ny)) ? (nx>0 ? LEFT : RIGHT) : CENTER;
-    float totalH = hasSub ? ns.labelSize + subSize + 3 : ns.labelSize;
     float topY = ly - totalH/2.0;
     textSize(ns.labelSize); textAlign(ha, TOP); text(ns.label, lx, topY);
     if (hasSub) {
+      float mainLabelW = textWidth(ns.label);
       fill(MUTED); textSize(subSize);
-      float leftX = (ha==LEFT) ? lx : (ha==RIGHT) ? lx - textWidth(ns.label) : lx - textWidth(ns.label)/2.0;
+      float leftX = (ha==LEFT) ? lx : (ha==RIGHT) ? lx - mainLabelW : lx - mainLabelW/2.0;
       textAlign(LEFT, TOP); text(ns.subLabel, leftX, topY + ns.labelSize + 3);
     }
   } else {
