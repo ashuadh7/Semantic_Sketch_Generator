@@ -14,6 +14,10 @@ final int   SB_PAD  = 14;
 final color SB_BG   = color(248);
 final color SB_LINE = color(210);
 
+// ── Sidebar scroll ────────────────────────────────────────────────────────────
+float sidebarScrollY  = 0;  // current scroll offset (pixels)
+float sidebarContentH = 0;  // total content height, updated each draw
+
 // ── Text editing ──────────────────────────────────────────────────────────────
 boolean editingLabel    = false;
 String  editBuffer      = "";
@@ -150,8 +154,13 @@ float sbX() { return width-SB_W; }
 
 void drawSidebar() {
   float x=sbX();
+  // Unscrolled background
   fill(SB_BG); noStroke(); rect(x,0,SB_W,height);
   stroke(SB_LINE); strokeWeight(1); line(x,0,x,height);
+
+  // Clip to sidebar bounds and apply scroll offset
+  clip((int)x, 0, SB_W, height);
+  pushMatrix(); translate(0, -sidebarScrollY);
 
   NodeState ns = selectedNodeState();
   if (ns==null) {
@@ -169,10 +178,11 @@ void drawSidebar() {
     text("→ states/", x+SB_PAD+bw+4, y);
     y += 16;
     sbButton("Load session", x+SB_PAD, y, SB_W-SB_PAD*2, 28, "LOAD_STATE", false);
+    sidebarContentH = height;  // no-selection layout anchors near bottom — no scroll needed
 
     fill(MUTED); noStroke(); textSize(12); textAlign(CENTER,CENTER);
     text("Select a node\nto edit properties", x+SB_W/2.0, (height-200)/2.0);
-    return;
+    popMatrix(); noClip(); return;
   }
 
   boolean isNested     = (activeFrame == 2);
@@ -321,6 +331,19 @@ void drawSidebar() {
   text("→ states/", x+SB_PAD+bw2+4, y);
   y+=16;
   sbButton("Load session",x+SB_PAD,y,SB_W-SB_PAD*2,26,"LOAD_STATE",false);
+  y+=34;
+
+  sidebarContentH = y;  // record total content height for scroll clamping
+  popMatrix(); noClip();
+
+  // Draw scroll indicator if content overflows
+  if (sidebarContentH > height) {
+    float trackH = height;
+    float thumbH = max(24, trackH * (height / sidebarContentH));
+    float thumbY = (sidebarScrollY / (sidebarContentH - height)) * (trackH - thumbH);
+    noStroke(); fill(180, 180, 180, 160);
+    rect(x+SB_W-5, thumbY, 4, thumbH, 2);
+  }
 }
 
 // ── Filename field helper ─────────────────────────────────────────────────────
@@ -430,7 +453,7 @@ float sbLabelAngleSlider(float ang, float x, float y) {
   text("Label angle", x+SB_PAD, y); y+=14;
   float outerR=26, nodeR=9;
   float cx=x+SB_W/2.0, cy=y+outerR;
-  labelSliderCX=cx; labelSliderCY=cy;
+  labelSliderCX=cx; labelSliderCY=cy-sidebarScrollY;  // screen-space y for drag handler
   // Outer ring (dashed, like an orbit)
   noFill(); stroke(200); strokeWeight(1);
   dashedCircle(cx, cy, outerR, 5, 4);
