@@ -54,6 +54,7 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
 // used to rotate the satellite cluster so it faces away from the centre.
 void drawSubDiagram(NodeState ns, float cx, float cy, int ownerHitIdx, float hubAngle) {
   styledNode(cx, cy, ns);
+  if (appMode==1 && ns.viewCollapsed) { drawViewHubTint(cx, cy, ns); return; }
   float screenOrbitR = ns.subOrbitR * ns.subScale;
   noFill(); stroke(ns.orbitCol); strokeWeight(1);
   if (ns.orbitDashed) dashedCircle(cx, cy, screenOrbitR, 7, 5);
@@ -101,11 +102,8 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, f
       childHitIdx[i] = hitCount;
       registerHitTarget(lx, ly, child.r, childStIdx);
 
-      if (child.isHub()) {
-        styledNode(lx, ly, child);
-      } else {
-        styledNode(lx, ly, child);
-      }
+      styledNode(lx, ly, child);
+      if (child.isHub() && appMode==1 && child.viewCollapsed) drawViewHubTint(lx, ly, child);
     }
   popMatrix();
 
@@ -115,7 +113,7 @@ void drawSubDiagramContents(NodeState ns, float cx, float cy, int ownerHitIdx, f
     hitTargets[childHitIdx[i]][1] = inspectorCY + childSY[i];
     hitTargets[childHitIdx[i]][2] = child.r * sc;
 
-    if (child.isHub()) {
+    if (child.isHub() && !(appMode==1 && child.viewCollapsed)) {
       float childOrbitR = child.subOrbitR * child.subScale;
       noFill(); stroke(child.orbitCol); strokeWeight(1);
       if (child.orbitDashed) dashedCircle(childSX[i], childSY[i], childOrbitR, 7, 5);

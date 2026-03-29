@@ -18,6 +18,7 @@ class NodeState {
   String  subLabel      = "";          // optional sub-label shown below main label
   color   orbitCol    = color(180);
   boolean orbitDashed = true;
+  boolean viewCollapsed = false;  // transient View-mode state; never serialized
 
   PImage  img           = null;
   boolean cropToShape   = true;
