@@ -39,6 +39,10 @@ class NodeState {
   float       subAngOffset = 0.0;
   NodeState[] children     = null;
 
+  // ── Per-node undo/redo ─────────────────────────────────────────────────────
+  ArrayList<JSONObject> nodeUndoStack = new ArrayList<JSONObject>();
+  ArrayList<JSONObject> nodeRedoStack = new ArrayList<JSONObject>();
+
   NodeState(String label, float r, float ang) {
     this.label = label; this.r = r; this.ang = ang;
   }
@@ -112,6 +116,65 @@ class NodeState {
       children[i].invalidateCache();
       if (children[i].isHub()) children[i].scaleProportional(factor);
     }
+  }
+
+  // ── Per-node snapshot helpers ──────────────────────────────────────────────
+  // Call before any property-only mutation (color, alpha, shape, label, image, crop).
+  // Does NOT push to the global undo stack — the two stacks are independent.
+  void pushNodeSnapshot() {
+    nodeRedoStack.clear();
+    if (nodeUndoStack.size() >= 20) nodeUndoStack.remove(0);
+    nodeUndoStack.add(nodeToJSON(this));
+  }
+
+  void undoNode() {
+    if (nodeUndoStack.isEmpty()) return;
+    if (nodeRedoStack.size() >= 20) nodeRedoStack.remove(0);
+    nodeRedoStack.add(nodeToJSON(this));
+    applyNodeSnapshot(nodeUndoStack.remove(nodeUndoStack.size() - 1));
+  }
+
+  void redoNode() {
+    if (nodeRedoStack.isEmpty()) return;
+    if (nodeUndoStack.size() >= 20) nodeUndoStack.remove(0);
+    nodeUndoStack.add(nodeToJSON(this));
+    applyNodeSnapshot(nodeRedoStack.remove(nodeRedoStack.size() - 1));
+  }
+
+  // Jump to the oldest (initial) state; current and all intermediate states
+  // become available as redo steps.
+  void resetNode() {
+    if (nodeUndoStack.isEmpty()) return;
+    nodeRedoStack.add(nodeToJSON(this));
+    // Drain undo stack from newest to [1], pushing each onto redo (reversed)
+    while (nodeUndoStack.size() > 1)
+      nodeRedoStack.add(nodeUndoStack.remove(nodeUndoStack.size() - 1));
+    applyNodeSnapshot(nodeUndoStack.remove(0));
+  }
+
+  // Restore property fields from a snapshot. Structural fields (ang, children,
+  // subType, subOrbitR, subScale) are intentionally skipped — those are handled
+  // by the global undo stack only.
+  void applyNodeSnapshot(JSONObject o) {
+    label       = o.getString("label",     label);
+    r           = o.getFloat ("r",         r);
+    fillCol     = hexToColor(o.getString("fillCol",  colorToHex(fillCol)));
+    alpha       = o.getInt   ("alpha",     alpha);
+    shapeType   = o.getInt   ("shapeType", shapeType);
+    labelAng    = o.getFloat ("labelAng",  labelAng);
+    labelSize   = o.getInt   ("labelSize", labelSize);
+    subLabel    = o.getString("subLabel",  subLabel);
+    orbitCol    = hexToColor(o.getString("orbitCol",  colorToHex(orbitCol)));
+    orbitDashed  = o.getBoolean("orbitDashed",  orbitDashed);
+    cropToShape  = o.getBoolean("cropToShape",  cropToShape);
+    subAngOffset = o.getFloat("subAngOffset", subAngOffset);
+    if (!o.isNull("img")) {
+      String imgB64 = o.getString("img", null);
+      img = (imgB64 != null && imgB64.length() > 0) ? base64ToPImage(imgB64) : null;
+    } else {
+      img = null;
+    }
+    invalidateCache();
   }
 
   // ── Image mask cache ───────────────────────────────────────────────────────

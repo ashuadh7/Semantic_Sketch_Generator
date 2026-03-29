@@ -86,33 +86,37 @@ void drawFrameworkToPG(PGraphics pg, int id) {
 }
 
 // ── Save state ────────────────────────────────────────────────────────────────
-void saveState(String customName) {
+
+// Build a full-state JSONObject without writing to disk.
+// Used by the undo/redo stack and by saveState().
+JSONObject buildStateJSON() {
   JSONObject root = new JSONObject();
   root.setInt("version", 1);
   root.setInt("activeFrame", activeFrame);
 
   JSONObject fw = new JSONObject();
 
-  // NSpoke
   JSONObject spoke = new JSONObject();
   spoke.setFloat("orbitR", spokeOrbitR);
   spoke.setJSONArray("nodes", statesToJSON(spokeState));
   fw.setJSONObject("spoke", spoke);
 
-  // NCross
   JSONObject cross = new JSONObject();
   cross.setFloat("orbitR", crossOrbitR);
   cross.setJSONArray("nodes", statesToJSON(crossState));
   fw.setJSONObject("cross", cross);
 
-  // Nested
   JSONObject nested = new JSONObject();
   nested.setFloat("outerOrbitR", twoOuterOrbitR);
   nested.setJSONArray("nodes", statesToJSON(twoState));
   fw.setJSONObject("nested", nested);
 
   root.setJSONObject("frameworks", fw);
+  return root;
+}
 
+void saveState(String customName) {
+  JSONObject root = buildStateJSON();
   String filename;
   if (customName != null && customName.trim().length() > 0) {
     filename = "data/states/" + customName.trim() + ".json";
@@ -126,26 +130,40 @@ void saveState(String customName) {
 }
 
 // ── Load state ────────────────────────────────────────────────────────────────
-void loadStateFromFile(File f) {
-  if (f == null) return;
+
+// Restore app state from a parsed JSONObject (used by undo/redo and loadStateFromFile).
+// Does NOT touch activeFrame — callers decide whether to override it.
+void restoreStateFromJSON(JSONObject root) {
   try {
-    JSONObject root = loadJSONObject(f.getAbsolutePath());
-    activeFrame = 2; // always nested level editor; ignore legacy activeFrame from saved files
     JSONObject fw = root.getJSONObject("frameworks");
 
     JSONObject spoke = fw.getJSONObject("spoke");
     spokeOrbitR = spoke.getFloat("orbitR");
     spokeState  = statesFromJSON(spoke.getJSONArray("nodes"));
+    nSpoke      = max(0, spokeState.length - 1);
 
     JSONObject cross = fw.getJSONObject("cross");
     crossOrbitR = cross.getFloat("orbitR");
     crossState  = statesFromJSON(cross.getJSONArray("nodes"));
+    nCross      = max(0, crossState.length - 1);
 
     JSONObject nested = fw.getJSONObject("nested");
     twoOuterOrbitR = nested.getFloat("outerOrbitR");
     twoState       = statesFromJSON(nested.getJSONArray("nodes"));
 
     selectedNode = -1;
+  } catch (Exception e) {
+    println("Restore error: " + e.getMessage());
+    showToast("Error restoring state.");
+  }
+}
+
+void loadStateFromFile(File f) {
+  if (f == null) return;
+  try {
+    JSONObject root = loadJSONObject(f.getAbsolutePath());
+    restoreStateFromJSON(root);
+    activeFrame = 2; // always open in nested editor; ignore saved activeFrame
     showToast("State loaded.");
   } catch (Exception e) {
     println("Load error: " + e.getMessage());
@@ -197,6 +215,10 @@ void importNodeFromFile(File f) {
     }
 
     if (imported == null) { showToast("Nothing to import."); return; }
+
+    // Capture state before modifying the target node.
+    pushUndoSnapshot();
+    target.pushNodeSnapshot();
 
     // Completely replace target with the imported node — preserve only position.
     float savedAng     = target.ang;
