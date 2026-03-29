@@ -67,6 +67,8 @@ void draw() {
     drawSelectionRing();
     drawHUD();
     sbResetZones(); drawSidebar();
+    // Offset registered click zones to match scrolled sidebar position
+    for (int i = 0; i < sbZoneCount; i++) sbZones[i][1] -= sidebarScrollY;
   } else {
     // ── View mode ─────────────────────────────────────────────────────────
     float ch      = height - canvasY - 48;
@@ -158,6 +160,12 @@ void mouseReleased() {
 }
 
 void mouseWheel(MouseEvent e) {
+  // Route to sidebar scroll when cursor is over the sidebar (edit mode only)
+  if (appMode == 0 && mouseX >= sbX()) {
+    float maxScroll = max(0, sidebarContentH - height);
+    sidebarScrollY = constrain(sidebarScrollY + e.getCount() * 24, 0, maxScroll);
+    return;
+  }
   float factor = e.getCount() < 0 ? 1.1 : 0.9;
   if (appMode == 0) {
     float mx=mouseX-inspectorCX-editPanX, my=mouseY-inspectorCY-editPanY;
