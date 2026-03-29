@@ -279,13 +279,13 @@ void drawSidebar() {
       fill(MUTED); noStroke(); textSize(11); textAlign(LEFT,TOP);
       text(isTopHub?"Add satellites:":"Expand this node:", x+SB_PAD, y); y+=16;
       float bw2=(SB_W-SB_PAD*2-4)/2.0;
-      sbButton("+ Cross",x+SB_PAD,       y,bw2,24,"PROMOTE_CROSS",false);
-      sbButton("+ Spoke",x+SB_PAD+bw2+4, y,bw2,24,"PROMOTE_SPOKE",false);
+      sbButton("+ Spoke",x+SB_PAD,       y,bw2,24,"PROMOTE_CROSS",false);
+      sbButton("+ Radial",x+SB_PAD+bw2+4,y,bw2,24,"PROMOTE_SPOKE",false);
       y+=32;
     } else {
       // Already has satellites
       fill(MUTED); noStroke(); textSize(11); textAlign(LEFT,TOP);
-      text("Type: "+(ns.subType==SLOT_CROSS?"Cross":"Spoke")
+      text("Type: "+(ns.subType==SLOT_CROSS?"Spoke":"Radial")
            +"   "+ns.numSatellites()+" satellite"+(ns.numSatellites()!=1?"s":""),
            x+SB_PAD, y); y+=16;
       float bw2=(SB_W-SB_PAD*2-8)/3.0;
@@ -294,8 +294,8 @@ void drawSidebar() {
       sbButton("Flatten", x+SB_PAD+(bw2+4)*2, y,bw2,24,"DEMOTE",    false);
       y+=32;
       float bw22=(SB_W-SB_PAD*2-4)/2.0;
-      sbButton("> Cross",x+SB_PAD,        y,bw22,22,"SWITCH_CROSS",ns.subType==SLOT_CROSS);
-      sbButton("> Spoke",x+SB_PAD+bw22+4,y,bw22,22,"SWITCH_SPOKE",ns.subType==SLOT_SPOKE);
+      sbButton("> Spoke", x+SB_PAD,        y,bw22,22,"SWITCH_CROSS",ns.subType==SLOT_CROSS);
+      sbButton("> Radial",x+SB_PAD+bw22+4,y,bw22,22,"SWITCH_SPOKE",ns.subType==SLOT_SPOKE);
       y+=30;
     }
     if (isSatellite) {
