@@ -119,23 +119,31 @@ class NodeState {
 
   void rebuildMask(int diameter) {
     if (img==null || !cropToShape) { imgMasked=null; return; }
-    if (imgCacheSize==diameter && imgCacheShape==shapeType && imgMasked!=null) return;
+    if (imgCacheShape==shapeType && imgMasked!=null) return;
     imgCacheSize=diameter; imgCacheShape=shapeType;
 
-    PGraphics imgG = createGraphics(diameter, diameter, JAVA2D);
+    // Bake at the image's native resolution so zooming in View mode stays sharp
+    int res = max(img.width, img.height);
+    int cx=res/2, cy=res/2;
+
+    PGraphics imgG = createGraphics(res, res, JAVA2D);
     imgG.beginDraw(); imgG.clear();
-    imgG.image(img, 0, 0, diameter, diameter);
+    // Center-crop: scale to cover the square while preserving aspect ratio
+    float asp = (float)img.width / img.height;
+    float dw, dh;
+    if (asp >= 1.0) { dh = res; dw = res * asp; }
+    else            { dw = res; dh = res / asp; }
+    imgG.image(img, (res-dw)*0.5, (res-dh)*0.5, dw, dh);
     imgG.endDraw();
 
-    PGraphics mask = createGraphics(diameter, diameter, JAVA2D);
+    PGraphics mask = createGraphics(res, res, JAVA2D);
     mask.beginDraw(); mask.background(0); mask.noStroke(); mask.fill(255);
-    int cx=diameter/2, cy=diameter/2;
-    if      (shapeType==SHAPE_CIRCLE)  mask.ellipse(cx, cy, diameter, diameter);
-    else if (shapeType==SHAPE_RECT)    mask.rect(0, 0, diameter, diameter, (int)(cx*0.3));
+    if      (shapeType==SHAPE_CIRCLE)  mask.ellipse(cx, cy, res, res);
+    else if (shapeType==SHAPE_RECT)    mask.rect(0, 0, res, res, (int)(cx*0.3));
     else {
       mask.beginShape();
-      mask.vertex(cx,0); mask.vertex(diameter,cy);
-      mask.vertex(cx,diameter); mask.vertex(0,cy);
+      mask.vertex(cx,0); mask.vertex(res,cy);
+      mask.vertex(cx,res); mask.vertex(0,cy);
       mask.endShape(CLOSE);
     }
     mask.endDraw();
