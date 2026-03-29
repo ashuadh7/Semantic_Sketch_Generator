@@ -22,6 +22,13 @@ void drawTwoLevel(int nInner, int nOuter) {
   int hubHitIdx = hitCount;
   registerHitTarget(0, 0, hub.r, 0);
 
+  // In View mode, collapsed top hub: draw hub + tint only
+  if (appMode==1 && hub.viewCollapsed) {
+    styledNode(0, 0, hub);
+    drawViewHubTint(0, 0, hub);
+    return;
+  }
+
   float screenOrbitR = hub.subOrbitR * hub.subScale;
   styledOrbit(0, 0, screenOrbitR, hub);
 
@@ -45,8 +52,14 @@ void drawTwoLevel(int nInner, int nOuter) {
     int childHitIdx = hitCount;
     registerHitTarget(sx, sy, child.r * hub.subScale, childStIdx);
 
-    if (child.isHub()) drawSubDiagram(child, sx, sy, childHitIdx, child.ang);
-    else               styledNode(sx, sy, child);
+    if (child.isHub() && appMode==1 && child.viewCollapsed) {
+      styledNode(sx, sy, child);
+      drawViewHubTint(sx, sy, child);
+    } else if (child.isHub()) {
+      drawSubDiagram(child, sx, sy, childHitIdx, child.ang);
+    } else {
+      styledNode(sx, sy, child);
+    }
   }
 
   // Draw hub circle on top (already registered — just draw)

@@ -39,9 +39,18 @@ void draw(){
     drawHUD();
     sbResetZones(); drawSidebar();
   } else {
+    float ch=height-canvasY-20;
+    float canvasR=min(width,ch)*0.45;
+    float ext=viewExtent(twoState!=null&&twoState.length>0?twoState[0]:null);
+    float vs=(ext>0)?canvasR/ext:1.0;
     inspectorCX=width/2.0;
-    inspectorCY=canvasY+(height-20-canvasY)/2.0;
-    pushMatrix(); translate(inspectorCX,inspectorCY); drawFramework(activeFrame); popMatrix();
+    inspectorCY=canvasY+ch/2.0;
+    resetHitTargets(512);
+    pushMatrix(); translate(inspectorCX,inspectorCY); scale(vs); drawFramework(activeFrame); popMatrix();
+    // Correct hit targets from diagram-space to screen-space with viewScale applied
+    for(int i=0;i<hitCount;i++){
+      float wx=hitTargets[i][0]-inspectorCX, wy=hitTargets[i][1]-inspectorCY;
+      hitTargets[i][0]=inspectorCX+wx*vs; hitTargets[i][1]=inspectorCY+wy*vs; hitTargets[i][2]*=vs;}
   }
   drawToast();
 }
@@ -61,12 +70,18 @@ void mousePressed(){
   for(int i=0;i<numButtons;i++){
     float x=btnGap+i*(btnW+btnGap),y=btnTop;
     if(mouseX>x&&mouseX<x+btnW&&mouseY>y&&mouseY<y+btnH){
+      if(i==0&&appMode!=0)resetViewCollapsed();
+      if(i==1&&appMode!=1)collapseAllForView();
       appMode=i;return;}}
   if(appMode==0){
     if(editingLabel)commitLabelEdit(selectedNodeState());
     if(editingSubLabel)commitSubLabelEdit(selectedNodeState());
     if(editingFilename)commitFilenameEdit();
-    selectedNode=pickNode(mouseX,mouseY);}}
+    selectedNode=pickNode(mouseX,mouseY);
+  } else {
+    int hit=pickNode(mouseX,mouseY);
+    if(hit>=0){NodeState ns=resolveHit((int)hitTargets[hit][3]);
+      if(ns!=null&&ns.isHub())ns.viewCollapsed=!ns.viewCollapsed;}}}
 
 void mouseDragged(){if(appMode==0&&mouseX>=sbX())sbMouseDragged(mouseX,mouseY);}
 void mouseReleased(){if(appMode==0)sbMouseReleased();}
@@ -117,6 +132,30 @@ void drawButtons(){
     fill(active?color(230,242,255):color(245));stroke(active?color(80,140,210):BORDER);strokeWeight(active?1.8:0.8);
     rect(x,y,btnW,btnH,10);
     fill(active?color(30,80,160):FG);noStroke();textSize(13);textAlign(CENTER,CENTER);text(modeLabels[i],x+btnW/2,y+btnH/2);}}
+
+void resetViewCollapsed(){resetViewCollapsedRec(twoState);}
+void resetViewCollapsedRec(NodeState[]arr){
+  if(arr==null)return;
+  for(NodeState ns:arr){ns.viewCollapsed=false;if(ns.isHub())resetViewCollapsedRec(ns.children);}}
+
+void collapseAllForView(){collapseAllRec(twoState);}
+void collapseAllRec(NodeState[]arr){
+  if(arr==null)return;
+  for(NodeState ns:arr){if(ns.isHub()){ns.viewCollapsed=true;collapseAllRec(ns.children);}}}
+
+// Max screen-space radius from a node's centre given current viewCollapsed state
+float viewExtent(NodeState ns){
+  if(ns==null)return 0;
+  if(!ns.isHub()||ns.viewCollapsed)return ns.r;
+  float orbitR=ns.subOrbitR*ns.subScale, maxExt=ns.r;
+  for(int i=1;i<ns.children.length;i++){
+    NodeState c=ns.children[i];
+    maxExt=max(maxExt,orbitR+(c.isHub()&&!c.viewCollapsed?viewExtent(c):c.r*ns.subScale));}
+  return maxExt;}
+
+// Blue tint overlay drawn on top of styledNode for any hub in View mode
+void drawViewHubTint(float cx,float cy,NodeState ns){
+  fill(color(80,140,210,50));noStroke();drawShape(cx,cy,ns);}
 
 void drawEmptyState(){fill(MUTED);noStroke();textSize(13);textAlign(CENTER,CENTER);
   text("Nothing to display",(width-SB_W)/2.0,canvasY+(height-canvasY)/2.0);}
