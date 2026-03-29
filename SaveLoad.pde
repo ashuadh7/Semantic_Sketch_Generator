@@ -11,25 +11,37 @@ import java.io.ByteArrayInputStream;
 
 // ── Save image ────────────────────────────────────────────────────────────────
 void saveCanvasImage(String customName) {
-  // Render only the diagram area — exclude button bar, sidebar, HUD
-  float cx = (width - SB_W) / 2.0;
-  float cy = canvasY + (height - 20 - canvasY) / 2.0;
-  int cw   = width - SB_W;
-  int ch   = (int)(height - canvasY - 20);
+  // Canvas bounds depend on mode
+  int cw, ch;
+  float cx, cy, panX, panY, sc;
+  if (appMode == 1) {
+    // View mode: full width, clip to canvas area above HUD
+    cw = width;
+    ch = (int)(vHudY() - 4 - canvasY);
+    float ext = viewExtent(twoState!=null&&twoState.length>0?twoState[0]:null);
+    float vs  = (ext>0) ? (min(width,ch)*0.45/ext) : 1.0;
+    sc   = vs * viewZoom;
+    cx   = width / 2.0;
+    cy   = canvasY + ch / 2.0;
+    panX = viewPanX; panY = viewPanY;
+  } else {
+    // Edit mode: exclude sidebar
+    cw = width - SB_W;
+    ch = (int)(height - canvasY - 20);
+    sc   = editZoom;
+    cx   = (width - SB_W) / 2.0;
+    cy   = canvasY + ch / 2.0;
+    panX = editPanX; panY = editPanY;
+  }
 
   PGraphics pg = createGraphics(cw, ch, JAVA2D);
   pg.beginDraw();
   pg.background(255);
-
-  if (activeFrame >= 0) {
-    // Temporarily redirect hit registration to a dummy — we only want drawing
-    pg.pushMatrix();
-    pg.translate(cx, cy - canvasY);  // shift to canvas-relative center
-    // Replay framework draw into pg
-    drawFrameworkToPG(pg, activeFrame);
-    pg.popMatrix();
-  }
-
+  pg.pushMatrix();
+  pg.translate(cx + panX, cy - canvasY + panY);
+  pg.scale(sc);
+  drawFrameworkToPG(pg, activeFrame);
+  pg.popMatrix();
   pg.endDraw();
 
   String filename;

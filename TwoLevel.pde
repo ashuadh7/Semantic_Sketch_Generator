@@ -11,18 +11,14 @@ void drawTwoLevel(int nInner, int nOuter) {
   NodeState hub = twoState[0];
 
   if (!hub.isHub()) {
-    // Plain single node — just draw it
     registerHitTarget(0, 0, hub.r, 0);
     styledNode(0, 0, hub);
     return;
   }
 
-  // Hub has satellites.
-  // Register hub FIRST so we know its hitIdx before registering children.
   int hubHitIdx = hitCount;
   registerHitTarget(0, 0, hub.r, 0);
 
-  // In View mode, collapsed top hub: draw hub + tint only
   if (appMode==1 && hub.viewCollapsed) {
     styledNode(0, 0, hub);
     drawViewHubTint(0, 0, hub);
@@ -62,6 +58,5 @@ void drawTwoLevel(int nInner, int nOuter) {
     }
   }
 
-  // Draw hub circle on top (already registered — just draw)
   styledNode(0, 0, hub);
 }
