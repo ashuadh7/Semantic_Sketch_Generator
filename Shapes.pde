@@ -183,25 +183,31 @@ void keyPressed() {
   if (sbKeyPressed()) return;
   if (key == TAB) { selectedNode = (hitCount>0) ? (selectedNode+1)%hitCount : -1; return; }
   if (key == ESC) { key=0; selectedNode=-1; return; }
+  if (key == 26)  { undoGlobal(); return; }   // Ctrl+Z
+  if (key == 25)  { redoGlobal(); return; }   // Ctrl+Y
 
   NodeState ns = selectedNodeState();
   if (ns == null) return;
 
   boolean ownsOrbit = ns.isHub() || (selectedOwner==null && selectedLocalIdx==0);
   switch (key) {
-    case '[': ns.r = max(8, ns.r-2); ns.invalidateCache(); break;
-    case ']': ns.r = ns.r+2;         ns.invalidateCache(); break;
+    case '[':
+      pushUndoSnapshot(); ns.pushNodeSnapshot();
+      ns.r = max(8, ns.r-2); ns.invalidateCache(); break;
+    case ']':
+      pushUndoSnapshot(); ns.pushNodeSnapshot();
+      ns.r = ns.r+2; ns.invalidateCache(); break;
     case '{':
-      if (ns.isHub()) { ns.r=max(8,ns.r*0.92); ns.invalidateCache(); ns.scaleProportional(0.92); }
+      if (ns.isHub()) { pushUndoSnapshot(); ns.r=max(8,ns.r*0.92); ns.invalidateCache(); ns.scaleProportional(0.92); }
       break;
     case '}':
-      if (ns.isHub()) { ns.r=ns.r*1.08; ns.invalidateCache(); ns.scaleProportional(1.08); }
+      if (ns.isHub()) { pushUndoSnapshot(); ns.r=ns.r*1.08; ns.invalidateCache(); ns.scaleProportional(1.08); }
       break;
     case ',':
-      if (ownsOrbit) { if (ns.isHub()) ns.subOrbitR=max(20,ns.subOrbitR-5); else adjustHubOrbit(activeFrame,-5); }
+      if (ownsOrbit) { pushUndoSnapshot(); if (ns.isHub()) ns.subOrbitR=max(20,ns.subOrbitR-5); else adjustHubOrbit(activeFrame,-5); }
       break;
     case '.':
-      if (ownsOrbit) { if (ns.isHub()) ns.subOrbitR+=5; else adjustHubOrbit(activeFrame,5); }
+      if (ownsOrbit) { pushUndoSnapshot(); if (ns.isHub()) ns.subOrbitR+=5; else adjustHubOrbit(activeFrame,5); }
       break;
   }
 }
