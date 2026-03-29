@@ -27,12 +27,13 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
 
   for (int i = 0; i < n; i++) {
     NodeState ns = states[i+1];
-    float sx =  orbitR * sin(ns.ang);
-    float sy = -orbitR * cos(ns.ang);
+    float angle = ns.ang + hub.subAngOffset;
+    float sx =  orbitR * sin(angle);
+    float sy = -orbitR * cos(angle);
 
     if (diagramType == SLOT_CROSS) {
       float off=7, aHead=7;
-      float dx=sin(ns.ang), dy=-cos(ns.ang);
+      float dx=sin(angle), dy=-cos(angle);
       float px=-dy*off, py=dx*off;
       float gapC=hub.r+4, gapS=ns.r+4;
       stroke(FG); strokeWeight(1.3);
@@ -43,7 +44,7 @@ void drawNodesWithState(int n, NodeState[] states, float orbitR,
     int hitIdx = hitCount;
     registerHitTarget(sx, sy, ns.r, stateOffset + i+1);
 
-    if (ns.isHub()) drawSubDiagram(ns, sx, sy, hitIdx, ns.ang);
+    if (ns.isHub()) drawSubDiagram(ns, sx, sy, hitIdx, angle);
     else            styledNode(sx, sy, ns);
   }
 

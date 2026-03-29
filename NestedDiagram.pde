@@ -33,12 +33,13 @@ void drawTwoLevel(int nInner, int nOuter) {
   int n = hub.numSatellites();
   for (int i = 0; i < n; i++) {
     NodeState child = hub.children[i+1];
-    float sx =  screenOrbitR * sin(child.ang);
-    float sy = -screenOrbitR * cos(child.ang);
+    float angle = child.ang + hub.subAngOffset;
+    float sx =  screenOrbitR * sin(angle);
+    float sy = -screenOrbitR * cos(angle);
 
     if (hub.subType == SLOT_CROSS) {
       float off=7, aHead=7;
-      float dx=sin(child.ang), dy=-cos(child.ang);
+      float dx=sin(angle), dy=-cos(angle);
       float px=-dy*off, py=dx*off;
       float gapC=hub.r+4, gapS=child.r*hub.subScale+4;
       stroke(FG); strokeWeight(1.3);
@@ -54,7 +55,7 @@ void drawTwoLevel(int nInner, int nOuter) {
       styledNode(sx, sy, child);
       drawViewHubTint(sx, sy, child);
     } else if (child.isHub()) {
-      drawSubDiagram(child, sx, sy, childHitIdx, child.ang);
+      drawSubDiagram(child, sx, sy, childHitIdx, angle);
     } else {
       styledNode(sx, sy, child);
     }
