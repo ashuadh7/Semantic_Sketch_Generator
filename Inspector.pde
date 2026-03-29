@@ -135,7 +135,7 @@ void drawHUD() {
   NodeState ns = selectedNodeState();
   float orb = currentOrbitR();
   fill(color(30,80,180));
-  text("[*] "+ns.label+(orb>0?"  orbit="+nf(orb,0,1):"")
+  text("[*] "+ns.label+"  r="+int(ns.r)+(orb>0?"  orbit="+nf(orb,0,1):"")
     +"  [ ] node size"+(ns.isHub()?"  { } scale sub":"")
     +(orb>0?"  , . orbit":"")+"  Tab  Esc",
     (width-SB_W)/2.0, height-8);
